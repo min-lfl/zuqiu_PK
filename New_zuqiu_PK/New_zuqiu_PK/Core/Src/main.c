@@ -25,7 +25,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "BSP_SERVO.H"
+#include "Printf_DMA.H"
+#include "BSP_433.H"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,6 +59,10 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint16_t tem_num=1500;
+
+/* USER CODE BEGIN 0 */
+
 
 /* USER CODE END 0 */
 
@@ -93,13 +99,83 @@ int main(void)
   MX_TIM3_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+	
+	Set_uart_433_Init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+//		Red_uart_433();
+		
+		Witch_uart_433();
+			
+//		Set_uart_433();
+		
+		HAL_Delay(500);
+		HAL_Delay(500);
+		
+//		//				//???????
+//		HAL_GPIO_WritePin(GPIOA,GPIO_PIN_12,GPIO_PIN_SET);
+//		HAL_Delay(500);
+//		HAL_GPIO_WritePin(GPIOA,GPIO_PIN_12,GPIO_PIN_RESET);
+//		HAL_Delay(500);
+		
+//		HAL_GPIO_WritePin(GPIOA,GPIO_PIN_6,GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOA,GPIO_PIN_7,GPIO_PIN_SET);
+//		
+//		qianjin();
+//		tem_num+=100;
+//		konzhi(tem_num);
+//		if(tem_num>1800){
+//			tem_num=1200;
+//		}
+		
+		
+//							/* ???????????? */
+//			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) == GPIO_PIN_RESET)
+//			{
+//					/* ?? PB12 ??? */
+//					HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+//					konzhi(1300);
+//					/* ??????(?????),????????? */
+//					HAL_Delay(20);
+//					while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) == GPIO_PIN_RESET)
+//					{
+//							// ?????????????
+//					}
+//			}
+//			
+//			
+//			/* ???????????? */
+//			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_14) == GPIO_PIN_RESET)
+//			{
+//					/* ?? PB12 ??? */
+//					HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+//					konzhi(1500);
+//					/* ??????(?????),????????? */
+//					HAL_Delay(20);
+//					while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_14) == GPIO_PIN_RESET)
+//					{
+//							// ?????????????
+//					}
+//			}
+//			
+//							/* ???????????? */
+//			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13) == GPIO_PIN_RESET)
+//			{
+//					/* ?? PB12 ??? */
+//					HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+//					konzhi(1700);
+//					/* ??????(?????),????????? */
+//					HAL_Delay(20);
+//					while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13) == GPIO_PIN_RESET)
+//					{
+//							// ?????????????
+//					}
+//			}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -120,7 +196,7 @@ void SystemClock_Config(void)
   * in the RCC_OscInitTypeDef structure.
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
