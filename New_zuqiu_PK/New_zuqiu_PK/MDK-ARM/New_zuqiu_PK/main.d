@@ -38,3 +38,4 @@ new_zuqiu_pk\main.o: ../User_Drivers/Printf_DMA.H
 new_zuqiu_pk\main.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdarg.h
 new_zuqiu_pk\main.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdio.h
 new_zuqiu_pk\main.o: ../User_BSP/BSP_433.H
+new_zuqiu_pk\main.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdbool.h

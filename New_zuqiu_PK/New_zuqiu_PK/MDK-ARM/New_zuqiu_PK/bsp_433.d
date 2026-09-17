@@ -1,5 +1,7 @@
 new_zuqiu_pk\bsp_433.o: ..\User_BSP\BSP_433.c
-new_zuqiu_pk\bsp_433.o: ..\User_BSP\BSP_433.H
+new_zuqiu_pk\bsp_433.o: ..\User_BSP\BSP_433.h
+new_zuqiu_pk\bsp_433.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdbool.h
+new_zuqiu_pk\bsp_433.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdint.h
 new_zuqiu_pk\bsp_433.o: ../Core/Inc/main.h
 new_zuqiu_pk\bsp_433.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h
 new_zuqiu_pk\bsp_433.o: ../Core/Inc/stm32f1xx_hal_conf.h
@@ -8,7 +10,6 @@ new_zuqiu_pk\bsp_433.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h
 new_zuqiu_pk\bsp_433.o: ../Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h
 new_zuqiu_pk\bsp_433.o: ../Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xe.h
 new_zuqiu_pk\bsp_433.o: ../Drivers/CMSIS/Include/core_cm3.h
-new_zuqiu_pk\bsp_433.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdint.h
 new_zuqiu_pk\bsp_433.o: ../Drivers/CMSIS/Include/cmsis_version.h
 new_zuqiu_pk\bsp_433.o: ../Drivers/CMSIS/Include/cmsis_compiler.h
 new_zuqiu_pk\bsp_433.o: ../Drivers/CMSIS/Include/cmsis_armcc.h

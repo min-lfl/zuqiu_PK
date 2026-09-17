@@ -96,10 +96,10 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_TIM3_Init();
   MX_USART1_UART_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-	
+	Servo_Init();
 	Set_uart_433_Init();
   /* USER CODE END 2 */
 
@@ -108,6 +108,11 @@ int main(void)
   while (1)
   {
 
+		tem_num+=100;
+		konzhi(tem_num);
+		if(tem_num>1800){
+			tem_num=1200;
+		}
 //		Red_uart_433();
 		
 		Witch_uart_433();
