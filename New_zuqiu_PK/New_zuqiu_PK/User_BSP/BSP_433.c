@@ -1,12 +1,9 @@
 #include "BSP_433.h"
 
-#include "main.h"
-#include "usart.h"
-
 /*
  * 接收方案说明
  * ------------
- * 1. USART1 每收到 1 个字节就进入 HAL_UART_RxCpltCallback()。
+ * 1. 配置的串口每收到 1 个字节就进入 HAL_UART_RxCpltCallback()。
  * 2. 中断只负责把“字节 + 接收时刻”放入环形缓冲区，避免在中断中解析。
  * 3. BSP_433_GetKeyState() 在主循环上下文中按两个字节组合键码。
  * 4. 若两个字节不能组成任何已知键码，只丢弃第一个字节，再滑动一位重试。
@@ -27,6 +24,9 @@
 /* 同一键码的两个字节在 9600 波特率下约相隔 1 ms，20 ms 已留有充分余量。 */
 #define BSP_433_MAX_BYTE_GAP_MS       (20U)
 
+/* 433 模块模式切换和配置命令所需的近似等待时间。 */
+#define BSP_433_MODE_DELAY_MS          (500U)
+
 typedef struct
 {
     uint8_t data;
@@ -42,7 +42,7 @@ typedef struct
 
 /*
  * 环形缓冲区是单生产者/单消费者结构：
- * - USART1 中断只修改 s_rx_write_index；
+ * - 串口接收中断只修改 s_rx_write_index；
  * - 主循环只修改 s_rx_read_index。
  * volatile 用于保证两个执行上下文每次都读取最新的索引和数据。
  */
@@ -81,6 +81,7 @@ static BSP_433_KeyState_t s_key_states[] =
 #define BSP_433_KEY_COUNT \
     ((uint16_t)(sizeof(s_key_states) / sizeof(s_key_states[0])))
 
+static void BSP_433_BusyWaitMs(uint32_t delay_ms);
 static uint16_t BSP_433_RingNextIndex(uint16_t index);
 static void BSP_433_RingPushFromISR(uint8_t data, uint32_t received_tick);
 static BSP_433_KeyState_t *BSP_433_FindKeyState(uint16_t command);
@@ -89,6 +90,44 @@ static void BSP_433_ResetReceiver(void);
 static void BSP_433_HandlePendingFault(void);
 static void BSP_433_ProcessReceivedData(void);
 static void BSP_433_ExpireKeyStates(uint32_t now);
+
+/**
+ * @brief 不依赖 SysTick 的 CPU 忙等待延时。
+ *
+ * STM32F103 的 Cortex-M3 内核带有 DWT 周期计数器。计数器寄存器由 CMSIS
+ * 声明为 volatile，循环内还保留 __NOP()，所以即使打开编译优化，这段等待也
+ * 不会被优化器删除。函数只让当前执行流忙等，不会关闭中断；UART、DMA 等中断
+ * 仍可在等待期间正常响应。
+ *
+ * 与 HAL_Delay() 不同，本函数不依赖 SysTick 中断推进系统节拍，因此即使调用
+ * 位置的中断优先级高于 SysTick，也不会因为 HAL tick 无法更新而永久卡住。
+ */
+static void BSP_433_BusyWaitMs(uint32_t delay_ms)
+{
+    uint32_t cycles_per_ms;
+    uint32_t start_cycle;
+
+    if (delay_ms == 0U)
+    {
+        return;
+    }
+
+    /* 打开内核跟踪模块和周期计数器；不清零 CYCCNT，避免影响其他性能测量。 */
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    cycles_per_ms = SystemCoreClock / 1000U;
+
+    while (delay_ms > 0U)
+    {
+        start_cycle = DWT->CYCCNT;
+        while ((uint32_t)(DWT->CYCCNT - start_cycle) < cycles_per_ms)
+        {
+            __NOP();
+        }
+
+        delay_ms--;
+    }
+}
 
 /**
  * @brief 计算环形缓冲区中的下一个索引。
@@ -281,7 +320,7 @@ static void BSP_433_ExpireKeyStates(uint32_t now)
 
 /*
  * 配置 433 模块并启动接收。
- * 原有配置时序保持不变：PA6=0、PA7=1 进入设置模式，发送配置后双脚拉低
+ * 原有配置时序保持不变：M0=0、M1=1 进入设置模式，发送配置后双脚拉低
  * 回到透明收发模式。最后才启动 RX 中断，避免把设置过程误当作按键数据。
  */
 void Set_uart_433_Init(void)
@@ -290,34 +329,34 @@ void Set_uart_433_Init(void)
                                        0x19U, 0x3EU, 0x00U};
 
     /* 允许重复调用初始化函数：先停止上一次可能仍在运行的接收。 */
-    (void)HAL_UART_AbortReceive(&huart1);
+    (void)HAL_UART_AbortReceive(&BSP_433_UART_HANDLE);
     BSP_433_ResetReceiver();
 
-    HAL_Delay(500U);
+    BSP_433_BusyWaitMs(BSP_433_MODE_DELAY_MS);
 
-    /* PA6 拉低、PA7 拉高，使 433 模块进入设置模式。 */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
+    /* M0 拉低、M1 拉高，使 433 模块进入设置模式。 */
+    HAL_GPIO_WritePin(BSP_433_M0, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BSP_433_M1, GPIO_PIN_SET);
 
-    HAL_Delay(500U);
-    if (HAL_UART_Transmit_DMA(&huart1, uart_tx_buffer,
+    BSP_433_BusyWaitMs(BSP_433_MODE_DELAY_MS);
+    if (HAL_UART_Transmit_DMA(&BSP_433_UART_HANDLE, uart_tx_buffer,
                               (uint16_t)sizeof(uart_tx_buffer)) != HAL_OK)
     {
         Error_Handler();
     }
 
     /* 等待短报文发送完成，再切换模块工作模式。 */
-    HAL_Delay(500U);
+    BSP_433_BusyWaitMs(BSP_433_MODE_DELAY_MS);
 
-    /* PA6、PA7 双拉低，回到正常透明收发模式。 */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+    /* M0、M1 双拉低，回到正常透明收发模式。 */
+    HAL_GPIO_WritePin(BSP_433_M0, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BSP_433_M1, GPIO_PIN_RESET);
 
     /* 清除设置阶段可能遗留在 DR 中的字节和 ORE 标志，再开始接收按键。 */
-    __HAL_UART_CLEAR_OREFLAG(&huart1);
+    __HAL_UART_CLEAR_OREFLAG(&BSP_433_UART_HANDLE);
 
     /* 从此以后每次接收 1 字节，回调写入环形缓冲区后立即续接。 */
-    if (HAL_UART_Receive_IT(&huart1, &s_uart_rx_byte, 1U) != HAL_OK)
+    if (HAL_UART_Receive_IT(&BSP_433_UART_HANDLE, &s_uart_rx_byte, 1U) != HAL_OK)
     {
         Error_Handler();
     }
@@ -344,11 +383,11 @@ bool BSP_433_GetKeyState(uint16_t key_cmd)
 
 /*
  * HAL 的 UART 接收完成回调在整个工程中只能有一个强定义。
- * 当前工程只有 USART1；以后若增加其他串口，请在此函数中继续按实例分发。
+ * 当前模块只处理 BSP_433_UART_HANDLE；以后若增加其他串口，请继续在此分发。
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if ((huart == NULL) || (huart->Instance != USART1))
+    if ((huart == NULL) || (huart != &BSP_433_UART_HANDLE))
     {
         return;
     }
@@ -366,7 +405,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
  */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-    if ((huart == NULL) || (huart->Instance != USART1))
+    if ((huart == NULL) || (huart != &BSP_433_UART_HANDLE))
     {
         return;
     }
@@ -387,17 +426,20 @@ void Red_uart_433(void)
 {
     static uint8_t uart_tx_buffer[] = {0xC1U, 0xC1U, 0xC1U};
 
-    /* PA6 拉低、PA7 拉高，进入设置模式。 */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
+    /* M0 拉低、M1 拉高，进入设置模式。 */
+    HAL_GPIO_WritePin(BSP_433_M0, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BSP_433_M1, GPIO_PIN_SET);
 
-    HAL_Delay(500U);
-    (void)HAL_UART_Transmit_DMA(&huart1, uart_tx_buffer,
+    BSP_433_BusyWaitMs(BSP_433_MODE_DELAY_MS);
+    (void)HAL_UART_Transmit_DMA(&BSP_433_UART_HANDLE, uart_tx_buffer,
                                 (uint16_t)sizeof(uart_tx_buffer));
 
+    /* DMA 发送是异步的，切换模式前必须给配置查询报文留出发送时间。 */
+    BSP_433_BusyWaitMs(BSP_433_MODE_DELAY_MS);
+
     /* 恢复双拉低的正常透明收发模式。 */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BSP_433_M0, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BSP_433_M1, GPIO_PIN_RESET);
 }
 
 /*
@@ -408,10 +450,10 @@ void Witch_uart_433(void)
     static uint8_t uart_tx_buffer[] = {0xAAU, 0xBBU, 0xCCU};
 
     /* 双拉低为正常透明收发模式。 */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BSP_433_M0, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BSP_433_M1, GPIO_PIN_RESET);
 
-    HAL_Delay(500U);
-    (void)HAL_UART_Transmit_DMA(&huart1, uart_tx_buffer,
+    BSP_433_BusyWaitMs(BSP_433_MODE_DELAY_MS);
+    (void)HAL_UART_Transmit_DMA(&BSP_433_UART_HANDLE, uart_tx_buffer,
                                 (uint16_t)sizeof(uart_tx_buffer));
 }

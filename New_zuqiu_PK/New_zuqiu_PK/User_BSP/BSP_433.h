@@ -4,6 +4,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "main.h"
+#include "usart.h"
+
+/*
+ * ======================== 硬件接口配置区 ========================
+ * 移植到其他串口或引脚时，只需要修改下面三个宏，不需要改 BSP_433.c。
+ *
+ * M0/M1 宏故意展开为“GPIO 端口, GPIO 引脚”两个实参，因此可以直接写成：
+ *     HAL_GPIO_WritePin(BSP_433_M0, GPIO_PIN_RESET);
+ * 本工程使用 STM32 HAL，故引脚名是 GPIO_PIN_x，而不是标准库的 GPIO_Pin_x。
+ * UART 宏填写句柄变量本身（例如 huart2），不要在宏里添加取地址符 &。
+ */
+#define BSP_433_UART_HANDLE    huart1
+#define BSP_433_M0             GPIOA, GPIO_PIN_6
+#define BSP_433_M1             GPIOA, GPIO_PIN_7
+
 /*
  * 遥控器共有 8 个按键，外形大致如下：
  *
@@ -46,9 +62,9 @@
 #endif
 
 /**
- * @brief 配置 433 模块，并启动 USART1 的非阻塞接收。
- * @note  必须在 MX_GPIO_Init()、MX_DMA_Init() 和 MX_USART1_UART_Init()
- *        之后调用一次。
+ * @brief 配置 433 模块，并启动所选串口的非阻塞接收。
+ * @note  必须在 GPIO、DMA 以及 BSP_433_UART_HANDLE 对应的串口完成初始化后
+ *        调用一次。
  */
 void Set_uart_433_Init(void);
 

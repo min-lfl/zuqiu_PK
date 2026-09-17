@@ -1,6 +1,7 @@
 new_zuqiu_pk\bsp_servo.o: ..\User_BSP\BSP_Servo.c
-new_zuqiu_pk\bsp_servo.o: ..\User_BSP\BSP_SERVO.H
-new_zuqiu_pk\bsp_servo.o: ../User_Drivers/PWM.h
+new_zuqiu_pk\bsp_servo.o: ..\User_BSP\BSP_Servo.h
+new_zuqiu_pk\bsp_servo.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdint.h
+new_zuqiu_pk\bsp_servo.o: ../Core/Inc/tim.h
 new_zuqiu_pk\bsp_servo.o: ../Core/Inc/main.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h
 new_zuqiu_pk\bsp_servo.o: ../Core/Inc/stm32f1xx_hal_conf.h
@@ -9,7 +10,6 @@ new_zuqiu_pk\bsp_servo.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.
 new_zuqiu_pk\bsp_servo.o: ../Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xe.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/CMSIS/Include/core_cm3.h
-new_zuqiu_pk\bsp_servo.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdint.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/CMSIS/Include/cmsis_version.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/CMSIS/Include/cmsis_compiler.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/CMSIS/Include/cmsis_armcc.h
@@ -30,4 +30,3 @@ new_zuqiu_pk\bsp_servo.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.
 new_zuqiu_pk\bsp_servo.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h
 new_zuqiu_pk\bsp_servo.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h
-new_zuqiu_pk\bsp_servo.o: ../Core/Inc/tim.h

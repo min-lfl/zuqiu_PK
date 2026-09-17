@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "BSP_SERVO.H"
+#include "BSP_Servo.h"
 #include "Printf_DMA.H"
 #include "BSP_433.H"
 /* USER CODE END Includes */
@@ -59,7 +59,20 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint16_t tem_num=1500;
+
+///* 左侧十字按键。 */
+//#define CMD_Cross_Up       (0x5751U)
+//#define CMD_Cross_Down     (0x585AU)
+//#define CMD_Cross_LEFT     (0x5341U)
+//#define CMD_Cross_RIGHT    (0x584DU)
+
+///* 右侧纵向排列的两个按键。 */
+//#define CMD_Forward        (0x4F50U)
+//#define CMD_Back           (0x4B4CU)
+
+///* 下方横向排列的两个按键。 */
+//#define CMD_One            (0x4342U)
+//#define CMD_Two            (0x4944U)
 
 /* USER CODE BEGIN 0 */
 
@@ -99,7 +112,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-	Servo_Init();
+	BSP_Servo_Init();
 	Set_uart_433_Init();
   /* USER CODE END 2 */
 
@@ -108,19 +121,33 @@ int main(void)
   while (1)
   {
 
-		tem_num+=100;
-		konzhi(tem_num);
-		if(tem_num>1800){
-			tem_num=1200;
-		}
 //		Red_uart_433();
 		
-		Witch_uart_433();
+//		Witch_uart_433();
 			
 //		Set_uart_433();
 		
-		HAL_Delay(500);
-		HAL_Delay(500);
+//		BSP_Chassis_Drive(0,-9000);
+		
+		BSP_Servo_SetFrontRightWheelSpeed(0);
+		BSP_Servo_SetFrontLeftWheelSpeed(0);
+		BSP_Servo_SetRearLeftWheelSpeed(0);
+		BSP_Servo_SetRearRightWheelSpeed(0);
+		
+//		if(BSP_433_GetKeyState(CMD_Cross_LEFT)){
+//			BSP_Chassis_Drive(0,-5000);
+//		}else if(BSP_433_GetKeyState(CMD_Cross_RIGHT)){
+//			BSP_Chassis_Drive(0,5000);
+//		}else if(CMD_Forward){
+//			BSP_Chassis_Drive(8000,0);
+//		}else if(CMD_Back){
+//			BSP_Chassis_Drive(-8000,0);
+//		}else{
+//			BSP_Chassis_Drive(0,0);
+//		}
+		
+//		HAL_Delay(500);
+//		HAL_Delay(500);
 		
 //		//				//???????
 //		HAL_GPIO_WritePin(GPIOA,GPIO_PIN_12,GPIO_PIN_SET);

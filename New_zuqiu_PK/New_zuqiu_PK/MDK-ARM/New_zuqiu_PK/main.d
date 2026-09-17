@@ -32,8 +32,7 @@ new_zuqiu_pk\main.o: ../Core/Inc/dma.h
 new_zuqiu_pk\main.o: ../Core/Inc/tim.h
 new_zuqiu_pk\main.o: ../Core/Inc/usart.h
 new_zuqiu_pk\main.o: ../Core/Inc/gpio.h
-new_zuqiu_pk\main.o: ../User_BSP/BSP_SERVO.H
-new_zuqiu_pk\main.o: ../User_Drivers/PWM.h
+new_zuqiu_pk\main.o: ../User_BSP/BSP_Servo.h
 new_zuqiu_pk\main.o: ../User_Drivers/Printf_DMA.H
 new_zuqiu_pk\main.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdarg.h
 new_zuqiu_pk\main.o: D:\Keil_v5\Core\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdio.h

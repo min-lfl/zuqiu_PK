@@ -564,16 +564,6 @@
               <FileType>5</FileType>
               <FilePath>..\User_Drivers\Printf_DMA.h</FilePath>
             </File>
-            <File>
-              <FileName>PWM.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User_Drivers\PWM.c</FilePath>
-            </File>
-            <File>
-              <FileName>PWM.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User_Drivers\PWM.h</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
