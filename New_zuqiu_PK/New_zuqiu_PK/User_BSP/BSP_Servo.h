@@ -44,7 +44,7 @@ extern "C" {
 //速度指令满量程：10000 表示0-10000的可调速度,这个宏定义也用于限幅
 #define BSP_SERVO_SPEED_FULL_SCALE         (10000)
 
-//底盘机械尺寸，单位为厘米，
+//底盘机械尺寸，单位为厘米
 //分别是左右轮距,前后轴距
 //按尺子读数填写
 #define BSP_CHASSIS_TRACK_WIDTH_CM         (20.0F)
