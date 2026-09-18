@@ -37,10 +37,10 @@ extern "C" {
  * 应分别测量四个车轮真正的停车值，然后只修改对应车轮的宏。
  * 在没有实测数据之前，四个车轮均使用标准中位值 1500。
  */
-#define BSP_SERVO_FR_NEUTRAL_CCR           (1500U)
-#define BSP_SERVO_FL_NEUTRAL_CCR           (1500U)
-#define BSP_SERVO_RL_NEUTRAL_CCR           (1500U)
-#define BSP_SERVO_RR_NEUTRAL_CCR           (1500U)
+#define BSP_SERVO_FR_NEUTRAL_CCR           (1440U)
+#define BSP_SERVO_FL_NEUTRAL_CCR           (1440U)
+#define BSP_SERVO_RL_NEUTRAL_CCR           (1440U)
+#define BSP_SERVO_RR_NEUTRAL_CCR           (1440U)
 
 /*
  * 相对于各车轮独立中位值的最大输出幅度。
@@ -51,10 +51,10 @@ extern "C" {
 
 /*
  * 机械死区补偿，单位为 CCR 计数值。
- * 任意非零速度指令都会先跨过这 40 个计数的死区，使较小指令也能启动电机。
+ * 任意非零速度指令都会先跨过下方宏所定义的死区，使较小指令也能启动电机。
  * 输入为零时不添加死区补偿，始终输出该车轮精确标定后的中位值。
  */
-#define BSP_SERVO_DEAD_ZONE                (40U)
+#define BSP_SERVO_DEAD_ZONE                (20U)
 
 /* 速度指令满量程：10000 表示 100.00%。 */
 #define BSP_SERVO_SPEED_FULL_SCALE         (10000)
@@ -96,10 +96,10 @@ void BSP_Servo_SetPWMCompare(uint32_t channel, uint16_t compare);
  * speed_percent 使用万分比，允许范围为 [-10000, 10000]：
  *   +10000 = 全速前进，0 = 标定中位停车，-10000 = 全速后退。
  */
-void BSP_Servo_SetFrontRightWheelSpeed(int16_t speed_percent);
-void BSP_Servo_SetFrontLeftWheelSpeed(int16_t speed_percent);
-void BSP_Servo_SetRearLeftWheelSpeed(int16_t speed_percent);
-void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent);
+void BSP_Servo_SetFrontRightWheelSpeed(int16_t speed_percent);		//右边前面轮子
+void BSP_Servo_SetFrontLeftWheelSpeed(int16_t speed_percent);			//左边前面轮子
+void BSP_Servo_SetRearLeftWheelSpeed(int16_t speed_percent);			//左边后面的轮子
+void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent);			//右边后面的轮子
 
 /*
  * 四轮滑移转向混控接口。

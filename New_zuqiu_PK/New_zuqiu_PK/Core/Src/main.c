@@ -129,10 +129,10 @@ int main(void)
 		
 //		BSP_Chassis_Drive(0,-9000);
 		
-		BSP_Servo_SetFrontRightWheelSpeed(0);
-		BSP_Servo_SetFrontLeftWheelSpeed(0);
-		BSP_Servo_SetRearLeftWheelSpeed(0);
-		BSP_Servo_SetRearRightWheelSpeed(0);
+//		BSP_Servo_SetFrontRightWheelSpeed(0);
+//		BSP_Servo_SetFrontLeftWheelSpeed(0);
+//		BSP_Servo_SetRearLeftWheelSpeed(0);
+//		BSP_Servo_SetRearRightWheelSpeed(0);
 		
 //		if(BSP_433_GetKeyState(CMD_Cross_LEFT)){
 //			BSP_Chassis_Drive(0,-5000);
@@ -145,6 +145,18 @@ int main(void)
 //		}else{
 //			BSP_Chassis_Drive(0,0);
 //		}
+
+		if(BSP_433_GetKeyState(CMD_Cross_LEFT)){
+			BSP_Chassis_Drive(3000,0);
+		}else if(BSP_433_GetKeyState(CMD_Cross_RIGHT)){
+			BSP_Chassis_Drive(-3000,0);
+		}else	if(BSP_433_GetKeyState(CMD_Forward)){
+			BSP_Chassis_Drive(0,-7500);
+		}else if(BSP_433_GetKeyState(CMD_Back)){
+			BSP_Chassis_Drive(0,7500);
+		}else {
+			BSP_Chassis_Drive(0,0);
+		}
 		
 //		HAL_Delay(500);
 //		HAL_Delay(500);

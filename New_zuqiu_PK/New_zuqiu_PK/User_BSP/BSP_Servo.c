@@ -264,7 +264,15 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
     left_output = BSP_Servo_FloatToCommand(left_command);
     right_output = BSP_Servo_FloatToCommand(right_command);
 
-    /* 同一侧的前后两个车轮使用完全相同的混控速度指令。 */
+    /*
+     * 严格按照实测映射分配左右两侧指令：
+     *
+     *   左侧指令 -> 左前轮 FL + 左后轮 RL
+     *   右侧指令 -> 右前轮 FR + 右后轮 RR
+     *
+     * 原地转向时 left_output 与 right_output 符号相反，因此左右两列
+     * 运动方向相反；这里绝不能按照“前排/后排”分配。
+     */
     BSP_Servo_SetFrontLeftWheelSpeed(left_output);
     BSP_Servo_SetRearLeftWheelSpeed(left_output);
     BSP_Servo_SetFrontRightWheelSpeed(right_output);
