@@ -146,17 +146,18 @@ int main(void)
 //			BSP_Chassis_Drive(0,0);
 //		}
 
-		//按照接口注释直接控制：第一参数是油门，第二参数是转向
+		//带时间基准的平滑控制：第一参数是油门，第二参数是转向
+		//默认加速度20000表示大约0.5秒从停车加速到满速
 		if(BSP_433_GetKeyState(CMD_Cross_LEFT)){	//左转时
-			BSP_Chassis_Drive(1,-3000);
-		}else if(BSP_433_GetKeyState(CMD_Cross_RIGHT)){//右边转时
-			BSP_Chassis_Drive(1,3000);
-		}else	if(BSP_433_GetKeyState(CMD_Forward)){//油门前进时
-			BSP_Chassis_Drive(5000,0);
+			BSP_Chassis_RampDrive(0,-6000,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
+		}else if(BSP_433_GetKeyState(CMD_Cross_RIGHT)){//右转时
+			BSP_Chassis_RampDrive(0,6000,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
+		}else if(BSP_433_GetKeyState(CMD_Forward)){//油门前进时
+			BSP_Chassis_RampDrive(10000,0,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
 		}else if(BSP_433_GetKeyState(CMD_Back)){//油门后退时
-			BSP_Chassis_Drive(-5000,0);
+			BSP_Chassis_RampDrive(-10000,0,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
 		}else {
-			BSP_Chassis_Drive(0,0);
+			BSP_Chassis_RampDrive(0,0,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
 		}
 		
 //		HAL_Delay(500);

@@ -60,6 +60,14 @@ extern "C" {
 #define BSP_CHASSIS_TRACK_WIDTH_CM         (15.5F)
 #define BSP_CHASSIS_WHEEL_BASE_CM          (11.5F)
 
+//###############加减速斜坡参数####################
+//斜坡算法的最小更新周期,单位ms；函数可以高频调用,但只会按此周期更新输出
+#define BSP_CHASSIS_RAMP_UPDATE_PERIOD_MS        (10U)
+//主循环偶然阻塞后允许参与计算的最大时间,防止dt过大导致速度突然跳变
+#define BSP_CHASSIS_RAMP_MAX_DT_MS               (20U)
+//默认加速度,单位为“速度指令/秒”；20000表示约0.5秒从0加速到10000
+#define BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC   (20000U)
+
 //参数检查逻辑,死区不能大于限幅
 #if (BSP_SERVO_DEAD_ZONE > BSP_SERVO_MAX_OUTPUT_AMP)
 #error "BSP_SERVO_DEAD_ZONE must not exceed BSP_SERVO_MAX_OUTPUT_AMP"
@@ -80,6 +88,12 @@ extern "C" {
       (BSP_SERVO_RR_FORWARD_POLARITY != -1)))
 #error "Each wheel forward polarity must be +1 or -1"
 #endif
+#if (BSP_CHASSIS_RAMP_UPDATE_PERIOD_MS == 0U)
+#error "BSP_CHASSIS_RAMP_UPDATE_PERIOD_MS must be greater than zero"
+#endif
+#if (BSP_CHASSIS_RAMP_MAX_DT_MS < BSP_CHASSIS_RAMP_UPDATE_PERIOD_MS)
+#error "BSP_CHASSIS_RAMP_MAX_DT_MS must not be less than update period"
+#endif
 
 
 //#################调试接口函数区###################
@@ -93,7 +107,8 @@ void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent);			//右边后面�
 //##################用户函数区域#################
 void BSP_Servo_Init(void);																				//初始化全部 PWM 通道,并且确保上电时底盘静止。
 void BSP_Chassis_Drive(int16_t throttle, int16_t steering);				//四轮滑移转向混控接口,参数分别是油门大小和左右转大小.
-																																	//两个输入的有效范围都是 [-10000, 10000]。正负表方向
+																																		//两个输入的有效范围都是 [-10000, 10000]。正负表方向
+void BSP_Chassis_RampDrive(int16_t throttle, int16_t steering, uint16_t acceleration); //带时间基准的加减速包装接口
 #ifdef __cplusplus
 }
 #endif

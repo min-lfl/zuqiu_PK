@@ -6,6 +6,7 @@
 //#############函数声明区域#########################
 //##################################################
 void BSP_Chassis_Drive(int16_t throttle, int16_t steering);
+void BSP_Chassis_RampDrive(int16_t throttle, int16_t steering, uint16_t acceleration);
 static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
                                          uint16_t neutral_compare,
                                          int8_t forward_polarity);
@@ -67,9 +68,127 @@ static int16_t BSP_Servo_FloatToCommand(float command)
 
 
 
+//让当前值以不超过max_step的步长接近目标值,用于实现线性加减速斜坡
+static float BSP_Chassis_ApproachTarget(float current,
+                                        float target,
+                                        float max_step)
+{
+    float difference;
+
+    difference = target - current;
+
+    if (difference > max_step)
+    {
+        return current + max_step;
+    }
+
+    if (difference < -max_step)
+    {
+        return current - max_step;
+    }
+
+    return target;
+}
+
+
 //###################################################
 //##############电机控制算法区域####################
 //###################################################
+
+/**
+  * @brief		带时间基准的底盘加减速包装接口
+  * @note		本函数只负责产生平滑的油门和转向值,最终仍调用BSP_Chassis_Drive输出
+  *				必须在主循环中持续、快速调用,不能只在收到一包遥控数据时调用
+  *				算法使用HAL_GetTick计算真实时间,不依赖遥控数据间隔,不需要定时器中断
+  * @param		throttle: 目标油门,正数前进、负数后退,范围[-10000,10000]
+  * @param		steering: 目标转向,正数右转、负数左转,范围[-10000,10000]
+  * @param		acceleration: 每秒允许变化的最大速度指令值
+  *				例如20000表示约0.5秒从0变化到10000；传0表示关闭斜坡并立即跟随目标
+  * @retval		无
+  */
+void BSP_Chassis_RampDrive(int16_t throttle,
+                           int16_t steering,
+                           uint16_t acceleration)
+{
+    static float current_throttle = 0.0F;
+    static float current_steering = 0.0F;
+    static uint32_t last_update_tick = 0U;
+    static uint8_t ramp_initialized = 0U;
+
+    uint32_t current_tick;
+    uint32_t elapsed_ms;
+    int32_t target_throttle;
+    int32_t target_steering;
+    float maximum_change;
+
+    //目标值先限幅,防止错误输入污染斜坡内部状态
+    target_throttle = BSP_Servo_ClampCommand((int32_t)throttle);
+    target_steering = BSP_Servo_ClampCommand((int32_t)steering);
+    current_tick = HAL_GetTick();
+
+    //第一次进入时从停车状态开始计时,不允许第一帧指令直接跳到目标速度
+    if (ramp_initialized == 0U)
+    {
+        ramp_initialized = 1U;
+        last_update_tick = current_tick;
+
+        //第一次调用就传0加速度时也必须遵守“立即跟随目标”的接口约定
+        if (acceleration == 0U)
+        {
+            current_throttle = (float)target_throttle;
+            current_steering = (float)target_steering;
+            BSP_Chassis_Drive((int16_t)target_throttle,
+                              (int16_t)target_steering);
+            return;
+        }
+
+        current_throttle = 0.0F;
+        current_steering = 0.0F;
+        BSP_Chassis_Drive(0, 0);
+        return;
+    }
+
+    //加速度为0时视为关闭斜坡,同步内部状态并立即输出目标值
+    if (acceleration == 0U)
+    {
+        current_throttle = (float)target_throttle;
+        current_steering = (float)target_steering;
+        last_update_tick = current_tick;
+        BSP_Chassis_Drive((int16_t)target_throttle,
+                          (int16_t)target_steering);
+        return;
+    }
+
+    //无符号减法可以正确处理HAL_GetTick约49.7天一次的回绕
+    elapsed_ms = (uint32_t)(current_tick - last_update_tick);
+    if (elapsed_ms < BSP_CHASSIS_RAMP_UPDATE_PERIOD_MS)
+    {
+        return;
+    }
+
+    last_update_tick = current_tick;
+
+    //主循环如果偶然阻塞,只采用有限的dt,避免恢复运行时产生大幅速度跳变
+    if (elapsed_ms > BSP_CHASSIS_RAMP_MAX_DT_MS)
+    {
+        elapsed_ms = BSP_CHASSIS_RAMP_MAX_DT_MS;
+    }
+
+    //maximum_change = 加速度(指令/秒) * 实际经过时间(秒)
+    maximum_change = (float)acceleration * ((float)elapsed_ms / 1000.0F);
+
+    current_throttle = BSP_Chassis_ApproachTarget(
+        current_throttle,
+        (float)target_throttle,
+        maximum_change);
+    current_steering = BSP_Chassis_ApproachTarget(
+        current_steering,
+        (float)target_steering,
+        maximum_change);
+
+    BSP_Chassis_Drive(BSP_Servo_FloatToCommand(current_throttle),
+                      BSP_Servo_FloatToCommand(current_steering));
+}
 
 /**
   * @brief		四轮滑移转向混控接口,适用于四轮差速小车,这个函数是用户函数,用户可以直接通过这个函数控制小车运动
@@ -372,5 +491,3 @@ void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent)
                                  BSP_SERVO_RR_NEUTRAL_CCR,
                                  BSP_SERVO_RR_FORWARD_POLARITY));
 }
-
-
