@@ -65,8 +65,23 @@ extern "C" {
 #define BSP_CHASSIS_RAMP_UPDATE_PERIOD_MS        (10U)
 //主循环偶然阻塞后允许参与计算的最大时间,防止dt过大导致速度突然跳变
 #define BSP_CHASSIS_RAMP_MAX_DT_MS               (20U)
-//默认加速度,单位为“速度指令/秒”；20000表示约0.5秒从0加速到10000
-#define BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC   (20000U)
+//前后油门加减速度,单位为“速度指令/秒”；20000表示约0.5秒从0加速到10000
+#define BSP_CHASSIS_RAMP_THROTTLE_ACCEL_PER_SEC          (20000U)
+
+//底盘能够开始转动的最小转向指令；低于该值时只有电机声音而车身基本不动
+#define BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND            (1900)
+//斜坡接口允许输出的最大转向指令，避免长按时原地高速旋转失控
+#define BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND            (4500)
+//组合行驶时，油门达到该值后才允许直接进入最小有效转向
+//该值不能小于最小转向指令，否则转向可能大于油门并让内侧轮反转
+#define BSP_CHASSIS_RAMP_COMBINED_MIN_THROTTLE           \
+    (BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND)
+//刚开始转向时的精细加速度；点按时从最小有效值开始缓慢增加
+#define BSP_CHASSIS_RAMP_STEERING_ACCEL_PER_SEC          (1500U)
+//长按过程中逐渐接近的最大加速度；代码会在精细值与该值之间连续插值
+#define BSP_CHASSIS_RAMP_STEERING_FAST_ACCEL_PER_SEC     (5000U)
+//松开、减小转向或反向操作时的减速度；低于最小有效值后会直接回到0
+#define BSP_CHASSIS_RAMP_STEERING_BRAKE_PER_SEC          (80000U)
 
 //参数检查逻辑,死区不能大于限幅
 #if (BSP_SERVO_DEAD_ZONE > BSP_SERVO_MAX_OUTPUT_AMP)
@@ -94,6 +109,23 @@ extern "C" {
 #if (BSP_CHASSIS_RAMP_MAX_DT_MS < BSP_CHASSIS_RAMP_UPDATE_PERIOD_MS)
 #error "BSP_CHASSIS_RAMP_MAX_DT_MS must not be less than update period"
 #endif
+#if ((BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND <= 0) || \
+     (BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND >= BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND))
+#error "Steering minimum command must be greater than zero and less than maximum"
+#endif
+#if (BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND > BSP_SERVO_SPEED_FULL_SCALE)
+#error "Steering maximum command exceeds servo full scale"
+#endif
+#if ((BSP_CHASSIS_RAMP_COMBINED_MIN_THROTTLE < BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND) || \
+     (BSP_CHASSIS_RAMP_COMBINED_MIN_THROTTLE > BSP_SERVO_SPEED_FULL_SCALE))
+#error "Combined turn throttle threshold must be between steering minimum and full scale"
+#endif
+#if (BSP_CHASSIS_RAMP_STEERING_FAST_ACCEL_PER_SEC < BSP_CHASSIS_RAMP_STEERING_ACCEL_PER_SEC)
+#error "Steering fast acceleration must not be less than fine acceleration"
+#endif
+#if (BSP_CHASSIS_RAMP_STEERING_BRAKE_PER_SEC == 0U)
+#error "Steering brake rate must be greater than zero"
+#endif
 
 
 //#################调试接口函数区###################
@@ -108,7 +140,9 @@ void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent);			//右边后面�
 void BSP_Servo_Init(void);																				//初始化全部 PWM 通道,并且确保上电时底盘静止。
 void BSP_Chassis_Drive(int16_t throttle, int16_t steering);				//四轮滑移转向混控接口,参数分别是油门大小和左右转大小.
 																																		//两个输入的有效范围都是 [-10000, 10000]。正负表方向
-void BSP_Chassis_RampDrive(int16_t throttle, int16_t steering, uint16_t acceleration); //带时间基准的加减速包装接口
+void BSP_Chassis_RampDrive(int16_t throttle, int16_t steering,
+                           uint16_t throttle_acceleration,
+                           uint16_t steering_acceleration); //油门和转向使用独立加速度
 #ifdef __cplusplus
 }
 #endif

@@ -6,7 +6,9 @@
 //#############函数声明区域#########################
 //##################################################
 void BSP_Chassis_Drive(int16_t throttle, int16_t steering);
-void BSP_Chassis_RampDrive(int16_t throttle, int16_t steering, uint16_t acceleration);
+void BSP_Chassis_RampDrive(int16_t throttle, int16_t steering,
+                           uint16_t throttle_acceleration,
+                           uint16_t steering_acceleration);
 static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
                                          uint16_t neutral_compare,
                                          int8_t forward_polarity);
@@ -96,19 +98,23 @@ static float BSP_Chassis_ApproachTarget(float current,
 //###################################################
 
 /**
-  * @brief		带时间基准的底盘加减速包装接口
-  * @note		本函数只负责产生平滑的油门和转向值,最终仍调用BSP_Chassis_Drive输出
-  *				必须在主循环中持续、快速调用,不能只在收到一包遥控数据时调用
-  *				算法使用HAL_GetTick计算真实时间,不依赖遥控数据间隔,不需要定时器中断
+  * @brief		油门与转向使用独立加速度的底盘斜坡控制接口
+  * @note		本函数只产生平滑指令,最终仍调用BSP_Chassis_Drive输出
+  *				必须在主循环中持续调用,不能只在收到遥控报文时调用
+  *				内部使用HAL_GetTick作为时间基准,不依赖遥控报文间隔,无需定时器中断
+  *				转向采用“低速精细、长按快速、松开快停”的三阶段斜坡
   * @param		throttle: 目标油门,正数前进、负数后退,范围[-10000,10000]
-  * @param		steering: 目标转向,正数右转、负数左转,范围[-10000,10000]
-  * @param		acceleration: 每秒允许变化的最大速度指令值
-  *				例如20000表示约0.5秒从0变化到10000；传0表示关闭斜坡并立即跟随目标
+  * @param		steering: 目标转向,正数右转、负数左转；非0目标值会被限制在
+  *				[BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND,
+  *				 BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND]对应的正负范围内
+  * @param		throttle_acceleration: 油门每秒允许变化的最大指令值,传0表示立即跟随
+  * @param		steering_acceleration: 精细转向阶段每秒允许变化的指令值,传0表示立即跟随
   * @retval		无
   */
 void BSP_Chassis_RampDrive(int16_t throttle,
                            int16_t steering,
-                           uint16_t acceleration)
+                           uint16_t throttle_acceleration,
+                           uint16_t steering_acceleration)
 {
     static float current_throttle = 0.0F;
     static float current_steering = 0.0F;
@@ -119,43 +125,63 @@ void BSP_Chassis_RampDrive(int16_t throttle,
     uint32_t elapsed_ms;
     int32_t target_throttle;
     int32_t target_steering;
-    float maximum_change;
+    float throttle_maximum_change;
+    float steering_maximum_change;
+    float effective_steering_acceleration;
+    float fast_steering_acceleration;
+    float steering_ramp_target;
+    float steering_acceleration_ratio;
+    float current_steering_magnitude;
+    uint8_t steering_is_accelerating;
+    uint8_t steering_is_reversing;
+    uint8_t minimum_steering_is_allowed;
+    uint8_t steering_started_at_minimum;
 
     //目标值先限幅,防止错误输入污染斜坡内部状态
     target_throttle = BSP_Servo_ClampCommand((int32_t)throttle);
     target_steering = BSP_Servo_ClampCommand((int32_t)steering);
+
+    /*
+     * 转向目标单独限幅：
+     *   1. 非0目标至少提升到MIN_COMMAND，跨过无法推动底盘的机械静摩擦区；
+     *   2. 最大目标限制在MAX_COMMAND，避免长按后进入过快的原地旋转。
+     *
+     * 这里限制的是斜坡目标，不改变底层BSP_Chassis_Drive的通用输入范围。
+     */
+    if (target_steering > BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND)
+    {
+        target_steering = BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND;
+    }
+    else if (target_steering < -BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND)
+    {
+        target_steering = -BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND;
+    }
+    else if ((target_steering > 0) &&
+             (target_steering < BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND))
+    {
+        target_steering = BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND;
+    }
+    else if ((target_steering < 0) &&
+             (target_steering > -BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND))
+    {
+        target_steering = -BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND;
+    }
+
     current_tick = HAL_GetTick();
 
-    //第一次进入时从停车状态开始计时,不允许第一帧指令直接跳到目标速度
+    //第一次调用时,启用斜坡的轴从0开始；加速度为0的轴立即跟随目标
     if (ramp_initialized == 0U)
     {
         ramp_initialized = 1U;
         last_update_tick = current_tick;
 
-        //第一次调用就传0加速度时也必须遵守“立即跟随目标”的接口约定
-        if (acceleration == 0U)
-        {
-            current_throttle = (float)target_throttle;
-            current_steering = (float)target_steering;
-            BSP_Chassis_Drive((int16_t)target_throttle,
-                              (int16_t)target_steering);
-            return;
-        }
+        current_throttle = (throttle_acceleration == 0U) ?
+                           (float)target_throttle : 0.0F;
+        current_steering = (steering_acceleration == 0U) ?
+                           (float)target_steering : 0.0F;
 
-        current_throttle = 0.0F;
-        current_steering = 0.0F;
-        BSP_Chassis_Drive(0, 0);
-        return;
-    }
-
-    //加速度为0时视为关闭斜坡,同步内部状态并立即输出目标值
-    if (acceleration == 0U)
-    {
-        current_throttle = (float)target_throttle;
-        current_steering = (float)target_steering;
-        last_update_tick = current_tick;
-        BSP_Chassis_Drive((int16_t)target_throttle,
-                          (int16_t)target_steering);
+        BSP_Chassis_Drive(BSP_Servo_FloatToCommand(current_throttle),
+                          BSP_Servo_FloatToCommand(current_steering));
         return;
     }
 
@@ -174,17 +200,170 @@ void BSP_Chassis_RampDrive(int16_t throttle,
         elapsed_ms = BSP_CHASSIS_RAMP_MAX_DT_MS;
     }
 
-    //maximum_change = 加速度(指令/秒) * 实际经过时间(秒)
-    maximum_change = (float)acceleration * ((float)elapsed_ms / 1000.0F);
+    //油门轴使用独立的线性加减速度
+    if (throttle_acceleration == 0U)
+    {
+        current_throttle = (float)target_throttle;
+    }
+    else
+    {
+        throttle_maximum_change = (float)throttle_acceleration *
+                                  ((float)elapsed_ms / 1000.0F);
+        current_throttle = BSP_Chassis_ApproachTarget(
+            current_throttle,
+            (float)target_throttle,
+            throttle_maximum_change);
+    }
 
-    current_throttle = BSP_Chassis_ApproachTarget(
-        current_throttle,
-        (float)target_throttle,
-        maximum_change);
-    current_steering = BSP_Chassis_ApproachTarget(
-        current_steering,
-        (float)target_steering,
-        maximum_change);
+    /*
+     * 反向操作必须先回到0，再从0向相反方向重新进入精细加速阶段。
+     * 如果直接以快速刹车步长接近相反方向的最终目标，一个10ms周期就可能
+     * 从+400跨到-400，从而跳过零点附近的精细区，转向角度也会依赖dt大小。
+     */
+    steering_is_reversing = 0U;
+    if (((current_steering > 0.0F) && (target_steering < 0)) ||
+        ((current_steering < 0.0F) && (target_steering > 0)))
+    {
+        steering_is_reversing = 1U;
+    }
+
+    steering_ramp_target = (steering_is_reversing != 0U) ?
+                           0.0F : (float)target_steering;
+
+    /*
+     * 满足下面任意条件时，允许直接从最小有效转向值起步：
+     *   1. 油门目标和当前油门都为0，即纯原地转向；
+     *   2. 当前油门已经达到组合转向阈值，并且实际运动方向与目标油门一致。
+     *
+     * 第二个条件正是“按住前进/后退时还能左右转”的关键。如果组合转向仍然
+     * 从0缓慢爬升，当前参数需要很长时间才能越过机械无效区，点按就没有反应。
+     * 只有当前油门幅度不小于最小转向值时才跳变，可保证|throttle|>=|steering|，
+     * 内侧轮最多短暂停止，不会因为转向指令过大而反向。
+     * 刚跳到MIN的这个控制周期不再继续增加转向，防止dt较大时转向又越过油门。
+     *
+     * 这不是为了突然提速，而是跳过实车完全不动作的低速无效区。
+     * 同方向快速松开又重新按下时，如果当前值已经低于MIN，也会重新恢复到
+     * 最小有效值，避免再次等待斜坡慢慢爬过无效区。
+     */
+    minimum_steering_is_allowed = 0U;
+    steering_started_at_minimum = 0U;
+    if ((target_throttle == 0) && (current_throttle == 0.0F))
+    {
+        minimum_steering_is_allowed = 1U;
+    }
+    else if (((target_throttle > 0) &&
+              (current_throttle >=
+               (float)BSP_CHASSIS_RAMP_COMBINED_MIN_THROTTLE)) ||
+             ((target_throttle < 0) &&
+              (current_throttle <=
+               -(float)BSP_CHASSIS_RAMP_COMBINED_MIN_THROTTLE)))
+    {
+        minimum_steering_is_allowed = 1U;
+    }
+
+    if ((steering_is_reversing == 0U) &&
+        (minimum_steering_is_allowed != 0U) &&
+        (target_steering != 0) &&
+        (BSP_Servo_AbsFloat(current_steering) <
+         (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND))
+    {
+        current_steering = (target_steering > 0) ?
+                           (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND :
+                           -(float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND;
+        steering_started_at_minimum = 1U;
+    }
+
+    /*
+     * “正在增加转向”的判定同时要求：目标非0、方向相同、目标幅度更大。
+     * 如果目标为0、目标幅度变小或方向相反，均视为刹停/换向过程。
+     *
+     * 转向斜坡分为三个阶段：
+     *   1. 精细起步：点按时使用调用者传入的基础加速度；
+     *   2. 渐进加速：随当前转向幅度连续提高加速度，长按时越来越快；
+     *   3. 快速刹停：松开、减速或反向时使用独立减速度，减少停止拖尾。
+     *
+     * 第1、2阶段之间没有硬阈值和倍率突变，加速度按下面的线性公式变化：
+     *
+     *   ratio = (|current|-MIN) / (MAX-MIN)，并限制到[0,1]
+     *   acceleration = fine + (fast-fine) * ratio
+     */
+    steering_is_accelerating = 0U;
+    if ((steering_is_reversing == 0U) &&
+        (target_steering != 0) &&
+        ((current_steering == 0.0F) ||
+         ((current_steering > 0.0F) && (target_steering > 0)) ||
+         ((current_steering < 0.0F) && (target_steering < 0))) &&
+        (BSP_Servo_AbsFloat((float)target_steering) >
+         BSP_Servo_AbsFloat(current_steering)))
+    {
+        steering_is_accelerating = 1U;
+    }
+
+    if (steering_acceleration == 0U)
+    {
+        current_steering = (float)target_steering;
+    }
+    else if (steering_started_at_minimum == 0U)
+    {
+        if (steering_is_accelerating != 0U)
+        {
+            current_steering_magnitude =
+                BSP_Servo_AbsFloat(current_steering);
+
+            if (current_steering_magnitude <=
+                (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND)
+            {
+                steering_acceleration_ratio = 0.0F;
+            }
+            else
+            {
+                steering_acceleration_ratio =
+                    (current_steering_magnitude -
+                     (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND) /
+                    ((float)BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND -
+                     (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND);
+
+                if (steering_acceleration_ratio > 1.0F)
+                {
+                    steering_acceleration_ratio = 1.0F;
+                }
+            }
+
+            fast_steering_acceleration =
+                (float)BSP_CHASSIS_RAMP_STEERING_FAST_ACCEL_PER_SEC;
+            if (fast_steering_acceleration <
+                (float)steering_acceleration)
+            {
+                fast_steering_acceleration = (float)steering_acceleration;
+            }
+
+            effective_steering_acceleration =
+                (float)steering_acceleration +
+                (fast_steering_acceleration -
+                 (float)steering_acceleration) *
+                steering_acceleration_ratio;
+        }
+        else
+        {
+            effective_steering_acceleration =
+                (float)BSP_CHASSIS_RAMP_STEERING_BRAKE_PER_SEC;
+        }
+
+        steering_maximum_change = effective_steering_acceleration *
+                                  ((float)elapsed_ms / 1000.0F);
+        current_steering = BSP_Chassis_ApproachTarget(
+            current_steering,
+            steering_ramp_target,
+            steering_maximum_change);
+
+        //刹车进入物理无效区后直接回到中位，避免电机持续发热却不能转动车身
+        if ((steering_ramp_target == 0.0F) &&
+            (BSP_Servo_AbsFloat(current_steering) <
+             (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND))
+        {
+            current_steering = 0.0F;
+        }
+    }
 
     BSP_Chassis_Drive(BSP_Servo_FloatToCommand(current_throttle),
                       BSP_Servo_FloatToCommand(current_steering));
@@ -205,6 +384,8 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
     float left_command;          //左侧两轮的逻辑速度
     float right_command;         //右侧两轮的逻辑速度
     float compensation_k;        //内侧轮衰减系数
+    float steering_ratio;        //转向量占满量程的比例,范围[0,1]
+    float inner_wheel_scale;      //随转向量连续变化的内侧轮衰减系数
     float peak_magnitude;
     float normalization_scale;
     int16_t left_output;
@@ -255,22 +436,46 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
     }
 
     /*
+     * 只有|throttle|>|steering|时,左右轮才保持同向运动,属于正常弧线转弯；
+     * 原地旋转或某侧已经反转时不做几何衰减,避免破坏原地旋转的左右对称性。
+     *
+     * 固定将内侧轮乘以k会产生不连续：steering从0变成1时,内侧轮会立刻
+     * 从100%跳到k。为保证轻点方向时只产生轻微差速,改为线性插值：
+     *
+     *   steering_ratio  = |steering| / STEERING_MAX，并限制到[0,1]
+     *   inner_wheel_scale = 1 - (1-k) * steering_ratio
+     *
+     * steering=0时scale=1,完全不补偿；转向达到本模块允许的MAX_COMMAND时
+     * scale才平滑到达k。BSP_Chassis_Drive直接收到更大转向值时ratio仍限制为1。
      * 内侧轮选择可以由 throttle * steering 的符号直接推导：
      *
-     *   T*S > 0：前进右转或倒车左转，右侧为内侧轮，R = R0*k
-     *   T*S < 0：前进左转或倒车右转，左侧为内侧轮，L = L0*k
+     *   T*S > 0：前进右转或倒车左转，右侧为内侧轮，R = R0*scale
+     *   T*S < 0：前进左转或倒车右转，左侧为内侧轮，L = L0*scale
      *   T*S = 0：纯直行或原地转向，不进行内侧轮补偿
      *
      * 这与上面的 L0=T+S、R0=T-S 完全一致，不需要交换加减号。
      */
-    turn_relation = limited_throttle * limited_steering;
-    if (turn_relation > 0)
+    steering_ratio = BSP_Servo_AbsFloat((float)limited_steering) /
+                     (float)BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND;
+    if (steering_ratio > 1.0F)
     {
-        right_command *= compensation_k;
+        steering_ratio = 1.0F;
     }
-    else if (turn_relation < 0)
+    inner_wheel_scale = 1.0F -
+                        (1.0F - compensation_k) * steering_ratio;
+
+    turn_relation = limited_throttle * limited_steering;
+    if ((BSP_Servo_AbsFloat((float)limited_throttle) >
+         BSP_Servo_AbsFloat((float)limited_steering)) &&
+        (turn_relation > 0))
     {
-        left_command *= compensation_k;
+        right_command *= inner_wheel_scale;
+    }
+    else if ((BSP_Servo_AbsFloat((float)limited_throttle) >
+              BSP_Servo_AbsFloat((float)limited_steering)) &&
+             (turn_relation < 0))
+    {
+        left_command *= inner_wheel_scale;
     }
 
     /*

@@ -87,7 +87,12 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	int16_t chassis_throttle_target;
+	int16_t chassis_steering_target;
+	bool key_forward;
+	bool key_back;
+	bool key_left;
+	bool key_right;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -146,19 +151,40 @@ int main(void)
 //			BSP_Chassis_Drive(0,0);
 //		}
 
-		//带时间基准的平滑控制：第一参数是油门，第二参数是转向
-		//默认加速度20000表示大约0.5秒从停车加速到满速
-		if(BSP_433_GetKeyState(CMD_Cross_LEFT)){	//左转时
-			BSP_Chassis_RampDrive(0,-6000,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
-		}else if(BSP_433_GetKeyState(CMD_Cross_RIGHT)){//右转时
-			BSP_Chassis_RampDrive(0,6000,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
-		}else if(BSP_433_GetKeyState(CMD_Forward)){//油门前进时
-			BSP_Chassis_RampDrive(10000,0,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
-		}else if(BSP_433_GetKeyState(CMD_Back)){//油门后退时
-			BSP_Chassis_RampDrive(-10000,0,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
-		}else {
-			BSP_Chassis_RampDrive(0,0,BSP_CHASSIS_RAMP_DEFAULT_ACCEL_PER_SEC);
+		/*
+		 * 油门轴和转向轴分别读取按键、分别生成目标值。
+		 * 不能使用一条else-if链，否则“前进+左/右”只能保留先判断到的一个动作。
+		 * 同一轴的两个相反按键若同时有效，则该轴目标保持为0，避免指令互相争抢。
+		 */
+		key_forward = BSP_433_GetKeyState(CMD_Forward);
+		key_back = BSP_433_GetKeyState(CMD_Back);
+		key_left = BSP_433_GetKeyState(CMD_Cross_LEFT);
+		key_right = BSP_433_GetKeyState(CMD_Cross_RIGHT);
+
+		chassis_throttle_target = 0;
+		if (key_forward && !key_back)
+		{
+			chassis_throttle_target = 10000;
 		}
+		else if (key_back && !key_forward)
+		{
+			chassis_throttle_target = -10000;
+		}
+
+		chassis_steering_target = 0;
+		if (key_right && !key_left)
+		{
+			chassis_steering_target = BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND;
+		}
+		else if (key_left && !key_right)
+		{
+			chassis_steering_target = -BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND;
+		}
+
+		BSP_Chassis_RampDrive(chassis_throttle_target,
+			chassis_steering_target,
+			BSP_CHASSIS_RAMP_THROTTLE_ACCEL_PER_SEC,
+			BSP_CHASSIS_RAMP_STEERING_ACCEL_PER_SEC);
 		
 //		HAL_Delay(500);
 //		HAL_Delay(500);
