@@ -58,7 +58,7 @@
  * 同时又不会让释放后的状态保持太久。若以后更换遥控器，只需调整此宏。
  */
 #ifndef BSP_433_KEY_TIMEOUT_MS
-#define BSP_433_KEY_TIMEOUT_MS    (300U)
+#define BSP_433_KEY_TIMEOUT_MS    (160U)
 #endif
 
 /**

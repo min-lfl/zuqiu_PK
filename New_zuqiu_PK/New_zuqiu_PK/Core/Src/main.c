@@ -146,14 +146,15 @@ int main(void)
 //			BSP_Chassis_Drive(0,0);
 //		}
 
-		if(BSP_433_GetKeyState(CMD_Cross_LEFT)){
-			BSP_Chassis_Drive(3000,0);
-		}else if(BSP_433_GetKeyState(CMD_Cross_RIGHT)){
-			BSP_Chassis_Drive(-3000,0);
-		}else	if(BSP_433_GetKeyState(CMD_Forward)){
-			BSP_Chassis_Drive(0,-7500);
-		}else if(BSP_433_GetKeyState(CMD_Back)){
-			BSP_Chassis_Drive(0,7500);
+		//按照接口注释直接控制：第一参数是油门，第二参数是转向
+		if(BSP_433_GetKeyState(CMD_Cross_LEFT)){	//左转时
+			BSP_Chassis_Drive(1,-3000);
+		}else if(BSP_433_GetKeyState(CMD_Cross_RIGHT)){//右边转时
+			BSP_Chassis_Drive(1,3000);
+		}else	if(BSP_433_GetKeyState(CMD_Forward)){//油门前进时
+			BSP_Chassis_Drive(5000,0);
+		}else if(BSP_433_GetKeyState(CMD_Back)){//油门后退时
+			BSP_Chassis_Drive(-5000,0);
 		}else {
 			BSP_Chassis_Drive(0,0);
 		}

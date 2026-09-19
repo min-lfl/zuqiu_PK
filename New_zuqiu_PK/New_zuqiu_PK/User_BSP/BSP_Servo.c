@@ -6,7 +6,9 @@
 //#############函数声明区域#########################
 //##################################################
 void BSP_Chassis_Drive(int16_t throttle, int16_t steering);
-static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,uint16_t neutral_compare);
+static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
+                                         uint16_t neutral_compare,
+                                         int8_t forward_polarity);
 void BSP_Servo_Init(void);
 void BSP_Servo_SetPWMCompare(uint32_t channel, uint16_t compare);
 void BSP_Servo_SetFrontRightWheelSpeed(int16_t speed_percent);
@@ -78,80 +80,79 @@ static int16_t BSP_Servo_FloatToCommand(float command)
 	*/
 void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
 {
-	int32_t limited_throttle;		//限幅后的油门缓存区
-    int32_t limited_steering; //限幅后的左右转缓存区
-    float left_command;				//融合后的左边速度
-    float right_command;			//融合后的右边速度
-		float compensation_k;			//混动补偿系数缓存区
+    int32_t limited_throttle;    //限幅后的油门值
+    int32_t limited_steering;    //限幅后的转向值
+    int32_t turn_relation;       //油门与转向的符号关系，用于判断内侧轮
+    float left_command;          //左侧两轮的逻辑速度
+    float right_command;         //右侧两轮的逻辑速度
+    float compensation_k;        //内侧轮衰减系数
     float peak_magnitude;
     float normalization_scale;
     int16_t left_output;
     int16_t right_output;
 
-	  //依旧先来个小限幅,防止流口水的用户输入错误的速度
+    //第一参数始终是油门，第二参数始终是转向；先分别进行输入限幅
     limited_throttle = BSP_Servo_ClampCommand((int32_t)throttle);
     limited_steering = BSP_Servo_ClampCommand((int32_t)steering);
 
     /*
-     * 基础滑移转向混控公式：这里可以得到数据融合后左边两个轮子的速度和右边两个轮子的速度
+     * 基础滑移转向混控公式：
      *
      *   L0 = throttle + steering
      *   R0 = throttle - steering
      *
-     * 只有油门输入时，左右两侧速度相同；只有转向输入时，左右两侧速度
-     * 大小相等、方向相反，从而实现原地旋转。
+     * 由此可以直接验证接口语义：
+     *   throttle > 0, steering = 0：L0、R0 都为正，整车前进
+     *   throttle < 0, steering = 0：L0、R0 都为负，整车后退
+     *   throttle = 0, steering > 0：L0 正、R0 负，整车原地右转
+     *   throttle = 0, steering < 0：L0 负、R0 正，整车原地左转
+     *
+     * 这里计算的是已经统一物理方向后的“逻辑轮速”。左右电机实际需要的
+     * CCR 增减方向，由四个单轮控制函数中的 FORWARD_POLARITY 宏处理。
      */
-		//左边两个轮子速度
     left_command = (float)(limited_throttle + limited_steering);
-		//右边两个轮子速度
     right_command = (float)(limited_throttle - limited_steering);
 
-
-		//#############混动算法部分,它是为了解决两边轮子速度差和转向角度非线性的问题###########
-    //计算混动系数,机械尺寸无效时退回 k=1，保证至少还能使用标准滑移转向混控。
-    if ((BSP_CHASSIS_TRACK_WIDTH_CM > 0.0F) &&	//保证轮距和轴距都大于0
+    //计算 k = 轴距 / 轮距；机械尺寸无效时退回 k=1，不进行额外补偿
+    if ((BSP_CHASSIS_TRACK_WIDTH_CM > 0.0F) &&
         (BSP_CHASSIS_WHEEL_BASE_CM > 0.0F))
     {
-        compensation_k = BSP_CHASSIS_WHEEL_BASE_CM /	//计算轮距和轴距
+        compensation_k = BSP_CHASSIS_WHEEL_BASE_CM /
                          BSP_CHASSIS_TRACK_WIDTH_CM;
-    }else{
+    }
+    else
+    {
         compensation_k = 1.0F;
     }
-		
 
-		/*
-		 * 转向机械补偿：只有在“边走边转”时才对内侧轮进行降速补偿。
-		 * 可以得到的是补偿值,要给哪个轮子减速具体多少的值
-		 * 原地自转 (throttle == 0) 或 纯直线时，所有分支均不满足，自动跳过。
-		 */
-		/* 前进情况 */
-		if (limited_throttle > 0)
-		{
-				if (limited_steering > 0)
-				{
-						//前进 + 右转：右侧为内侧轮，降低右侧车轮输出
-						right_command = right_command * compensation_k;
-				}
-				else if (limited_steering < 0)
-				{
-						//前进 + 左转：左侧为内侧轮，降低左侧车轮输出
-						left_command = left_command * compensation_k;
-				}
-		}
-		/* 后退情况 */
-		else if (limited_throttle < 0)
-		{
-				if (limited_steering > 0)
-				{
-						//倒车 + 右转：依据差速几何，此时左侧为需补偿轮
-						left_command = left_command * compensation_k;
-				}
-				else if (limited_steering < 0)
-				{
-						//倒车 + 左转：依据差速几何，此时右侧为需补偿轮
-						right_command = right_command * compensation_k;
-				}
-		}
+    /*
+     * compensation_k 被用作“内侧轮衰减系数”，因此有效值必须在 (0,1]。
+     * 如果轴距大于轮距导致原始比值超过 1，直接限制为 1，避免错误地
+     * 放大内侧轮速度。当前轴距和轮距相等时 k=1，相当于不额外补偿。
+     */
+    if (compensation_k > 1.0F)
+    {
+        compensation_k = 1.0F;
+    }
+
+    /*
+     * 内侧轮选择可以由 throttle * steering 的符号直接推导：
+     *
+     *   T*S > 0：前进右转或倒车左转，右侧为内侧轮，R = R0*k
+     *   T*S < 0：前进左转或倒车右转，左侧为内侧轮，L = L0*k
+     *   T*S = 0：纯直行或原地转向，不进行内侧轮补偿
+     *
+     * 这与上面的 L0=T+S、R0=T-S 完全一致，不需要交换加减号。
+     */
+    turn_relation = limited_throttle * limited_steering;
+    if (turn_relation > 0)
+    {
+        right_command *= compensation_k;
+    }
+    else if (turn_relation < 0)
+    {
+        left_command *= compensation_k;
+    }
 
     /*
      * 按比例进行输出限幅：
@@ -177,13 +178,11 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
         right_command *= normalization_scale;
     }
 
-		
-		//浮点转整数,并且依旧加点小限幅
+    //浮点转整数，并再次进行最终限幅
     left_output = BSP_Servo_FloatToCommand(left_command);
     right_output = BSP_Servo_FloatToCommand(right_command);
 
-		
-		//调用底层的四个轮子驱动函数去写入速度值
+    //严格按照用户逐轮实测的映射：左侧 FL/RL，右侧 FR/RR
     BSP_Servo_SetFrontLeftWheelSpeed(left_output);
     BSP_Servo_SetRearLeftWheelSpeed(left_output);
     BSP_Servo_SetFrontRightWheelSpeed(right_output);
@@ -196,10 +195,12 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
   * @note		死区补偿的思路参考线性死区补偿,并且在这里做的ccr值限幅
   * @param	speed_percent: 上层函数得到的速度值
   * @param	neutral_compare: 电机CCR的零点位置,大概是1500附近,这里取宏定义
+	* @param	forward_polarity: 该车轮物理前进对应的 CCR 增减极性，只允许 +1 或 -1
 	* @retval		最终可以输出给每个轮子的CCR值
 	*/
 static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
-                                         uint16_t neutral_compare)
+                                         uint16_t neutral_compare,
+                                         int8_t forward_polarity)
 {
     int32_t command;		      //缓存限幅后速度
     int32_t magnitude;	      //缓存正反转判断后的速度
@@ -241,8 +242,9 @@ static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
     compensated_offset = (int32_t)(linear_part + 0.5F) +(int32_t)BSP_SERVO_DEAD_ZONE;
 		
 		/* #####死开始融合得出最终ccr##### */
-		//用0点也是停转的ccr加上刚刚算出的死区线性映射后的ccr值,这里加还是减调了很多次,为什么要做四轮车啊啊啊
-    compare = (int32_t)neutral_compare + direction * compensated_offset;
+		//逻辑方向乘以单轮物理极性后，才是该通道真正需要的 CCR 增减方向
+    compare = (int32_t)neutral_compare +
+              direction * (int32_t)forward_polarity * compensated_offset;
 
 		
 		/* #####限幅处理区域##### */
@@ -336,7 +338,9 @@ void BSP_Servo_SetFrontRightWheelSpeed(int16_t speed_percent)
 {
     BSP_Servo_SetPWMCompare(
         BSP_SERVO_FR_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent, BSP_SERVO_FR_NEUTRAL_CCR));
+        BSP_Servo_SpeedToCompare(speed_percent,
+                                 BSP_SERVO_FR_NEUTRAL_CCR,
+                                 BSP_SERVO_FR_FORWARD_POLARITY));
 }
 
 //写入通道2的速度值,BSP_Chassis_Drive函数得到或者自己传入
@@ -344,7 +348,9 @@ void BSP_Servo_SetFrontLeftWheelSpeed(int16_t speed_percent)
 {
     BSP_Servo_SetPWMCompare(
         BSP_SERVO_FL_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent, BSP_SERVO_FL_NEUTRAL_CCR));
+        BSP_Servo_SpeedToCompare(speed_percent,
+                                 BSP_SERVO_FL_NEUTRAL_CCR,
+                                 BSP_SERVO_FL_FORWARD_POLARITY));
 }
 
 //写入通道3的速度值,BSP_Chassis_Drive函数得到或者自己传入
@@ -352,7 +358,9 @@ void BSP_Servo_SetRearLeftWheelSpeed(int16_t speed_percent)
 {
     BSP_Servo_SetPWMCompare(
         BSP_SERVO_RL_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent, BSP_SERVO_RL_NEUTRAL_CCR));
+        BSP_Servo_SpeedToCompare(speed_percent,
+                                 BSP_SERVO_RL_NEUTRAL_CCR,
+                                 BSP_SERVO_RL_FORWARD_POLARITY));
 }
 
 //写入通道4的速度值,BSP_Chassis_Drive函数得到或者自己传入
@@ -360,9 +368,9 @@ void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent)
 {
     BSP_Servo_SetPWMCompare(
         BSP_SERVO_RR_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent, BSP_SERVO_RR_NEUTRAL_CCR));
+        BSP_Servo_SpeedToCompare(speed_percent,
+                                 BSP_SERVO_RR_NEUTRAL_CCR,
+                                 BSP_SERVO_RR_FORWARD_POLARITY));
 }
-
-
 
 
