@@ -9,15 +9,15 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering);
 void BSP_Chassis_RampDrive(int16_t throttle, int16_t steering,
                            uint16_t throttle_acceleration,
                            uint16_t steering_acceleration);
-static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
+static uint16_t BSP_Motor_SpeedToCompare(int16_t speed_percent,
                                          uint16_t neutral_compare,
                                          int8_t forward_polarity);
-void BSP_Servo_Init(void);
-void BSP_Servo_SetPWMCompare(uint32_t channel, uint16_t compare);
-void BSP_Servo_SetFrontRightWheelSpeed(int16_t speed_percent);
-void BSP_Servo_SetFrontLeftWheelSpeed(int16_t speed_percent);
-void BSP_Servo_SetRearLeftWheelSpeed(int16_t speed_percent);
-void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent);
+void BSP_Motor_Init(void);
+void BSP_Motor_SetPWMCompare(uint32_t channel, uint16_t compare);
+void BSP_Motor_SetFrontRightWheelSpeed(int16_t speed_percent);
+void BSP_Motor_SetFrontLeftWheelSpeed(int16_t speed_percent);
+void BSP_Motor_SetRearLeftWheelSpeed(int16_t speed_percent);
+void BSP_Motor_SetRearRightWheelSpeed(int16_t speed_percent);
 
 
 
@@ -26,30 +26,30 @@ void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent);
 //##################数学工具区域#####################
 //###################################################
 //限幅函数,这里是限制最大速度值(映射ccr前的)
-static int32_t BSP_Servo_ClampCommand(int32_t command)
+static int32_t BSP_Motor_ClampCommand(int32_t command)
 {
-    if (command > BSP_SERVO_SPEED_FULL_SCALE)
+    if (command > BSP_Motor_SPEED_FULL_SCALE)
     {
-        return BSP_SERVO_SPEED_FULL_SCALE;
+        return BSP_Motor_SPEED_FULL_SCALE;
     }
 
-    if (command < -BSP_SERVO_SPEED_FULL_SCALE)
+    if (command < -BSP_Motor_SPEED_FULL_SCALE)
     {
-        return -BSP_SERVO_SPEED_FULL_SCALE;
+        return -BSP_Motor_SPEED_FULL_SCALE;
     }
 
     return command;
 }
 
 //浮点数绝对值计算函数
-static float BSP_Servo_AbsFloat(float value)
+static float BSP_Motor_AbsFloat(float value)
 {
     return (value < 0.0F) ? -value : value;
 }
 
 
 //将混控算法后的浮点数转整数格式,四舍五入，并且内置限幅
-static int16_t BSP_Servo_FloatToCommand(float command)
+static int16_t BSP_Motor_FloatToCommand(float command)
 {
     int32_t rounded_command;
 
@@ -64,7 +64,7 @@ static int16_t BSP_Servo_FloatToCommand(float command)
     }
 
 		//限幅后开始强转,强转会直接吧小数点后面的丢掉
-    return (int16_t)BSP_Servo_ClampCommand(rounded_command);
+    return (int16_t)BSP_Motor_ClampCommand(rounded_command);
 }
 
 
@@ -138,8 +138,8 @@ void BSP_Chassis_RampDrive(int16_t throttle,
     uint8_t steering_started_at_minimum;
 
     //目标值先限幅,防止错误输入污染斜坡内部状态
-    target_throttle = BSP_Servo_ClampCommand((int32_t)throttle);
-    target_steering = BSP_Servo_ClampCommand((int32_t)steering);
+    target_throttle = BSP_Motor_ClampCommand((int32_t)throttle);
+    target_steering = BSP_Motor_ClampCommand((int32_t)steering);
 
     /*
      * 转向目标单独限幅：
@@ -180,8 +180,8 @@ void BSP_Chassis_RampDrive(int16_t throttle,
         current_steering = (steering_acceleration == 0U) ?
                            (float)target_steering : 0.0F;
 
-        BSP_Chassis_Drive(BSP_Servo_FloatToCommand(current_throttle),
-                          BSP_Servo_FloatToCommand(current_steering));
+        BSP_Chassis_Drive(BSP_Motor_FloatToCommand(current_throttle),
+                          BSP_Motor_FloatToCommand(current_steering));
         return;
     }
 
@@ -264,7 +264,7 @@ void BSP_Chassis_RampDrive(int16_t throttle,
     if ((steering_is_reversing == 0U) &&
         (minimum_steering_is_allowed != 0U) &&
         (target_steering != 0) &&
-        (BSP_Servo_AbsFloat(current_steering) <
+        (BSP_Motor_AbsFloat(current_steering) <
          (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND))
     {
         current_steering = (target_steering > 0) ?
@@ -293,8 +293,8 @@ void BSP_Chassis_RampDrive(int16_t throttle,
         ((current_steering == 0.0F) ||
          ((current_steering > 0.0F) && (target_steering > 0)) ||
          ((current_steering < 0.0F) && (target_steering < 0))) &&
-        (BSP_Servo_AbsFloat((float)target_steering) >
-         BSP_Servo_AbsFloat(current_steering)))
+        (BSP_Motor_AbsFloat((float)target_steering) >
+         BSP_Motor_AbsFloat(current_steering)))
     {
         steering_is_accelerating = 1U;
     }
@@ -308,7 +308,7 @@ void BSP_Chassis_RampDrive(int16_t throttle,
         if (steering_is_accelerating != 0U)
         {
             current_steering_magnitude =
-                BSP_Servo_AbsFloat(current_steering);
+                BSP_Motor_AbsFloat(current_steering);
 
             if (current_steering_magnitude <=
                 (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND)
@@ -358,15 +358,15 @@ void BSP_Chassis_RampDrive(int16_t throttle,
 
         //刹车进入物理无效区后直接回到中位，避免电机持续发热却不能转动车身
         if ((steering_ramp_target == 0.0F) &&
-            (BSP_Servo_AbsFloat(current_steering) <
+            (BSP_Motor_AbsFloat(current_steering) <
              (float)BSP_CHASSIS_RAMP_STEERING_MIN_COMMAND))
         {
             current_steering = 0.0F;
         }
     }
 
-    BSP_Chassis_Drive(BSP_Servo_FloatToCommand(current_throttle),
-                      BSP_Servo_FloatToCommand(current_steering));
+    BSP_Chassis_Drive(BSP_Motor_FloatToCommand(current_throttle),
+                      BSP_Motor_FloatToCommand(current_steering));
 }
 
 /**
@@ -392,8 +392,8 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
     int16_t right_output;
 
     //第一参数始终是油门，第二参数始终是转向；先分别进行输入限幅
-    limited_throttle = BSP_Servo_ClampCommand((int32_t)throttle);
-    limited_steering = BSP_Servo_ClampCommand((int32_t)steering);
+    limited_throttle = BSP_Motor_ClampCommand((int32_t)throttle);
+    limited_steering = BSP_Motor_ClampCommand((int32_t)steering);
 
     /*
      * 基础滑移转向混控公式：
@@ -455,7 +455,7 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
      *
      * 这与上面的 L0=T+S、R0=T-S 完全一致，不需要交换加减号。
      */
-    steering_ratio = BSP_Servo_AbsFloat((float)limited_steering) /
+    steering_ratio = BSP_Motor_AbsFloat((float)limited_steering) /
                      (float)BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND;
     if (steering_ratio > 1.0F)
     {
@@ -465,14 +465,14 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
                         (1.0F - compensation_k) * steering_ratio;
 
     turn_relation = limited_throttle * limited_steering;
-    if ((BSP_Servo_AbsFloat((float)limited_throttle) >
-         BSP_Servo_AbsFloat((float)limited_steering)) &&
+    if ((BSP_Motor_AbsFloat((float)limited_throttle) >
+         BSP_Motor_AbsFloat((float)limited_steering)) &&
         (turn_relation > 0))
     {
         right_command *= inner_wheel_scale;
     }
-    else if ((BSP_Servo_AbsFloat((float)limited_throttle) >
-              BSP_Servo_AbsFloat((float)limited_steering)) &&
+    else if ((BSP_Motor_AbsFloat((float)limited_throttle) >
+              BSP_Motor_AbsFloat((float)limited_steering)) &&
              (turn_relation < 0))
     {
         left_command *= inner_wheel_scale;
@@ -488,29 +488,29 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
      * 如果分别进行简单截断，较大的一侧会单独被削平，导致实际转弯半径
      * 偏离输入指令所表达的转弯半径。
      */
-    peak_magnitude = BSP_Servo_AbsFloat(left_command);
-    if (BSP_Servo_AbsFloat(right_command) > peak_magnitude)
+    peak_magnitude = BSP_Motor_AbsFloat(left_command);
+    if (BSP_Motor_AbsFloat(right_command) > peak_magnitude)
     {
-        peak_magnitude = BSP_Servo_AbsFloat(right_command);
+        peak_magnitude = BSP_Motor_AbsFloat(right_command);
     }
 
-    if (peak_magnitude > (float)BSP_SERVO_SPEED_FULL_SCALE)
+    if (peak_magnitude > (float)BSP_Motor_SPEED_FULL_SCALE)
     {
-        normalization_scale = (float)BSP_SERVO_SPEED_FULL_SCALE /
+        normalization_scale = (float)BSP_Motor_SPEED_FULL_SCALE /
                               peak_magnitude;
         left_command *= normalization_scale;
         right_command *= normalization_scale;
     }
 
     //浮点转整数，并再次进行最终限幅
-    left_output = BSP_Servo_FloatToCommand(left_command);
-    right_output = BSP_Servo_FloatToCommand(right_command);
+    left_output = BSP_Motor_FloatToCommand(left_command);
+    right_output = BSP_Motor_FloatToCommand(right_command);
 
     //严格按照用户逐轮实测的映射：左侧 FL/RL，右侧 FR/RR
-    BSP_Servo_SetFrontLeftWheelSpeed(left_output);
-    BSP_Servo_SetRearLeftWheelSpeed(left_output);
-    BSP_Servo_SetFrontRightWheelSpeed(right_output);
-    BSP_Servo_SetRearRightWheelSpeed(right_output);
+    BSP_Motor_SetFrontLeftWheelSpeed(left_output);
+    BSP_Motor_SetRearLeftWheelSpeed(left_output);
+    BSP_Motor_SetFrontRightWheelSpeed(right_output);
+    BSP_Motor_SetRearRightWheelSpeed(right_output);
 }
 
 
@@ -522,7 +522,7 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
 	* @param	forward_polarity: 该车轮物理前进对应的 CCR 增减极性，只允许 +1 或 -1
 	* @retval		最终可以输出给每个轮子的CCR值
 	*/
-static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
+static uint16_t BSP_Motor_SpeedToCompare(int16_t speed_percent,
                                          uint16_t neutral_compare,
                                          int8_t forward_polarity)
 {
@@ -537,7 +537,7 @@ static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
 		float linear_part;		    //缓存死区线性映射值
 
 		//限幅函数
-    command = BSP_Servo_ClampCommand((int32_t)speed_percent);
+    command = BSP_Motor_ClampCommand((int32_t)speed_percent);
 
     /* 零指令必须输出精确标定的停车中位，绝不能在零点添加死区补偿。 */
     if (command == 0)		//如果速度是0
@@ -559,11 +559,11 @@ static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
 		
 		/* #####死区补偿算法三板斧##### */
 		//输出范围减去死区得到可调范围
-    effective_range = (float)(BSP_SERVO_MAX_OUTPUT_AMP -BSP_SERVO_DEAD_ZONE);
+    effective_range = (float)(BSP_Motor_MAX_OUTPUT_AMP -BSP_Motor_DEAD_ZONE);
 		//计算线性映射值,公式为可调范围*(目标速度/最大速度)
-    linear_part = effective_range *((float)magnitude / (float)BSP_SERVO_SPEED_FULL_SCALE);
+    linear_part = effective_range *((float)magnitude / (float)BSP_Motor_SPEED_FULL_SCALE);
     //把线性映射值加上死区值,得到死区补偿后的输出结果
-    compensated_offset = (int32_t)(linear_part + 0.5F) +(int32_t)BSP_SERVO_DEAD_ZONE;
+    compensated_offset = (int32_t)(linear_part + 0.5F) +(int32_t)BSP_Motor_DEAD_ZONE;
 		
 		/* #####死开始融合得出最终ccr##### */
 		//逻辑方向乘以单轮物理极性后，才是该通道真正需要的 CCR 增减方向
@@ -574,9 +574,9 @@ static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
 		/* #####限幅处理区域##### */
 		//算出允许的最大ccr和最小ccr
     minimum_compare = (int32_t)neutral_compare -
-                      (int32_t)BSP_SERVO_MAX_OUTPUT_AMP;
+                      (int32_t)BSP_Motor_MAX_OUTPUT_AMP;
     maximum_compare = (int32_t)neutral_compare +
-                      (int32_t)BSP_SERVO_MAX_OUTPUT_AMP;
+                      (int32_t)BSP_Motor_MAX_OUTPUT_AMP;
 		//依旧限幅
     if (compare < minimum_compare)
     {
@@ -597,21 +597,21 @@ static uint16_t BSP_Servo_SpeedToCompare(int16_t speed_percent,
 //###################################################
 //##############电机底层驱动区域##############
 //###################################################
-void BSP_Servo_Init(void)	//初始化函数
+void BSP_Motor_Init(void)	//初始化函数
 {
     HAL_StatusTypeDef start_status=HAL_OK;
 
 		//启动 PWM 输出前，先写入四个车轮各自标定后的停车值。
-    BSP_Servo_SetFrontRightWheelSpeed(0);
-    BSP_Servo_SetFrontLeftWheelSpeed(0);
-    BSP_Servo_SetRearLeftWheelSpeed(0);
-    BSP_Servo_SetRearRightWheelSpeed(0);
+    BSP_Motor_SetFrontRightWheelSpeed(0);
+    BSP_Motor_SetFrontLeftWheelSpeed(0);
+    BSP_Motor_SetRearLeftWheelSpeed(0);
+    BSP_Motor_SetRearRightWheelSpeed(0);
 
 		//启动定时器四个通道
-    if ((HAL_TIM_PWM_Start(&BSP_SERVO_TIMER_HANDLE, BSP_SERVO_FR_PWM_CHANNEL) != HAL_OK) ||
-        (HAL_TIM_PWM_Start(&BSP_SERVO_TIMER_HANDLE, BSP_SERVO_FL_PWM_CHANNEL) != HAL_OK) ||
-        (HAL_TIM_PWM_Start(&BSP_SERVO_TIMER_HANDLE, BSP_SERVO_RL_PWM_CHANNEL) != HAL_OK) ||
-        (HAL_TIM_PWM_Start(&BSP_SERVO_TIMER_HANDLE, BSP_SERVO_RR_PWM_CHANNEL) != HAL_OK))
+    if ((HAL_TIM_PWM_Start(&BSP_Motor_TIMER_HANDLE, BSP_Motor_FR_PWM_CHANNEL) != HAL_OK) ||
+        (HAL_TIM_PWM_Start(&BSP_Motor_TIMER_HANDLE, BSP_Motor_FL_PWM_CHANNEL) != HAL_OK) ||
+        (HAL_TIM_PWM_Start(&BSP_Motor_TIMER_HANDLE, BSP_Motor_RL_PWM_CHANNEL) != HAL_OK) ||
+        (HAL_TIM_PWM_Start(&BSP_Motor_TIMER_HANDLE, BSP_Motor_RR_PWM_CHANNEL) != HAL_OK))
     {start_status = HAL_ERROR;}
 
     //如果发生启动失败的,进入异常处理函数
@@ -630,22 +630,22 @@ void BSP_Servo_Init(void)	//初始化函数
 	* @param		该通道需要写入的具体ccr
 	* @retval		无
 	*/
-void BSP_Servo_SetPWMCompare(uint32_t channel, uint16_t compare)
+void BSP_Motor_SetPWMCompare(uint32_t channel, uint16_t compare)
 {
     uint32_t timer_arr;
 
     /* 函数只允许操作已经配置好的四个电机 PWM 通道,防止被错误调用导致的越界问题。 */
 		//如果发现通道值不对直接返回
-    if ((channel != BSP_SERVO_FR_PWM_CHANNEL) &&
-        (channel != BSP_SERVO_FL_PWM_CHANNEL) &&
-        (channel != BSP_SERVO_RL_PWM_CHANNEL) &&
-        (channel != BSP_SERVO_RR_PWM_CHANNEL))
+    if ((channel != BSP_Motor_FR_PWM_CHANNEL) &&
+        (channel != BSP_Motor_FL_PWM_CHANNEL) &&
+        (channel != BSP_Motor_RL_PWM_CHANNEL) &&
+        (channel != BSP_Motor_RR_PWM_CHANNEL))
     {
         return;
     }
 
     /* 即使应用层直接调用本封装，CCR 也绝对不能超过定时器 ARR。 */
-    timer_arr = __HAL_TIM_GET_AUTORELOAD(&BSP_SERVO_TIMER_HANDLE);		//获取当前设定的arr值
+    timer_arr = __HAL_TIM_GET_AUTORELOAD(&BSP_Motor_TIMER_HANDLE);		//获取当前设定的arr值
 		
 		//如果大于,那就等于(限幅保护函数)
     if ((uint32_t)compare > timer_arr)			
@@ -654,45 +654,45 @@ void BSP_Servo_SetPWMCompare(uint32_t channel, uint16_t compare)
     }
 		
 		//最终写入指定的通道
-    __HAL_TIM_SET_COMPARE(&BSP_SERVO_TIMER_HANDLE, channel, compare);
+    __HAL_TIM_SET_COMPARE(&BSP_Motor_TIMER_HANDLE, channel, compare);
 }
 
 //写入通道1的速度值,BSP_Chassis_Drive函数得到或者自己传入
-void BSP_Servo_SetFrontRightWheelSpeed(int16_t speed_percent)
+void BSP_Motor_SetFrontRightWheelSpeed(int16_t speed_percent)
 {
-    BSP_Servo_SetPWMCompare(
-        BSP_SERVO_FR_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent,
-                                 BSP_SERVO_FR_NEUTRAL_CCR,
-                                 BSP_SERVO_FR_FORWARD_POLARITY));
+    BSP_Motor_SetPWMCompare(
+        BSP_Motor_FR_PWM_CHANNEL,
+        BSP_Motor_SpeedToCompare(speed_percent,
+                                 BSP_Motor_FR_NEUTRAL_CCR,
+                                 BSP_Motor_FR_FORWARD_POLARITY));
 }
 
 //写入通道2的速度值,BSP_Chassis_Drive函数得到或者自己传入
-void BSP_Servo_SetFrontLeftWheelSpeed(int16_t speed_percent)
+void BSP_Motor_SetFrontLeftWheelSpeed(int16_t speed_percent)
 {
-    BSP_Servo_SetPWMCompare(
-        BSP_SERVO_FL_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent,
-                                 BSP_SERVO_FL_NEUTRAL_CCR,
-                                 BSP_SERVO_FL_FORWARD_POLARITY));
+    BSP_Motor_SetPWMCompare(
+        BSP_Motor_FL_PWM_CHANNEL,
+        BSP_Motor_SpeedToCompare(speed_percent,
+                                 BSP_Motor_FL_NEUTRAL_CCR,
+                                 BSP_Motor_FL_FORWARD_POLARITY));
 }
 
 //写入通道3的速度值,BSP_Chassis_Drive函数得到或者自己传入
-void BSP_Servo_SetRearLeftWheelSpeed(int16_t speed_percent)
+void BSP_Motor_SetRearLeftWheelSpeed(int16_t speed_percent)
 {
-    BSP_Servo_SetPWMCompare(
-        BSP_SERVO_RL_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent,
-                                 BSP_SERVO_RL_NEUTRAL_CCR,
-                                 BSP_SERVO_RL_FORWARD_POLARITY));
+    BSP_Motor_SetPWMCompare(
+        BSP_Motor_RL_PWM_CHANNEL,
+        BSP_Motor_SpeedToCompare(speed_percent,
+                                 BSP_Motor_RL_NEUTRAL_CCR,
+                                 BSP_Motor_RL_FORWARD_POLARITY));
 }
 
 //写入通道4的速度值,BSP_Chassis_Drive函数得到或者自己传入
-void BSP_Servo_SetRearRightWheelSpeed(int16_t speed_percent)
+void BSP_Motor_SetRearRightWheelSpeed(int16_t speed_percent)
 {
-    BSP_Servo_SetPWMCompare(
-        BSP_SERVO_RR_PWM_CHANNEL,
-        BSP_Servo_SpeedToCompare(speed_percent,
-                                 BSP_SERVO_RR_NEUTRAL_CCR,
-                                 BSP_SERVO_RR_FORWARD_POLARITY));
+    BSP_Motor_SetPWMCompare(
+        BSP_Motor_RR_PWM_CHANNEL,
+        BSP_Motor_SpeedToCompare(speed_percent,
+                                 BSP_Motor_RR_NEUTRAL_CCR,
+                                 BSP_Motor_RR_FORWARD_POLARITY));
 }

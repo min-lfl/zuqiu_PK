@@ -1,4 +1,4 @@
-new_zuqiu_pk/bsp_servo.o: ..\User_BSP\BSP_Servo.c ..\User_BSP\BSP_Servo.h \
+new_zuqiu_pk/bsp_servo.o: ..\User_BSP\BSP_servo.c ..\User_BSP\BSP_servo.H \
   D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdint.h ..\Core\Inc\tim.h \
   ..\Core\Inc\main.h ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal.h \
   ..\Core\Inc\stm32f1xx_hal_conf.h \

@@ -549,6 +549,16 @@
               <FileType>5</FileType>
               <FilePath>..\User_BSP\BSP_Motor.h</FilePath>
             </File>
+            <File>
+              <FileName>BSP_servo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User_BSP\BSP_servo.c</FilePath>
+            </File>
+            <File>
+              <FileName>BSP_servo.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\User_BSP\BSP_servo.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

@@ -118,7 +118,7 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-	BSP_Servo_Init();
+	BSP_Motor_Init();
 	Set_uart_433_Init();
   /* USER CODE END 2 */
 
@@ -195,7 +195,7 @@ int main(void)
 //		HAL_Delay(500);
 //		HAL_Delay(500);
 		
-//		//				//???????
+//		//???????
 //		HAL_GPIO_WritePin(GPIOA,GPIO_PIN_12,GPIO_PIN_SET);
 //		HAL_Delay(500);
 //		HAL_GPIO_WritePin(GPIOA,GPIO_PIN_12,GPIO_PIN_RESET);
