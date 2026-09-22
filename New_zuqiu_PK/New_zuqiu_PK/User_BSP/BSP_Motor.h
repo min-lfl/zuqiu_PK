@@ -1,5 +1,5 @@
-#ifndef BSP_SERVO_H
-#define BSP_SERVO_H
+#ifndef BSP_Motor_H
+#define BSP_Motor_H
 
 #ifdef __cplusplus
 extern "C" {

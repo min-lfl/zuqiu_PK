@@ -520,16 +520,6 @@
           <GroupName>User_BSP</GroupName>
           <Files>
             <File>
-              <FileName>BSP_Servo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User_BSP\BSP_Servo.c</FilePath>
-            </File>
-            <File>
-              <FileName>BSP_Servo.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\User_BSP\BSP_Servo.h</FilePath>
-            </File>
-            <File>
               <FileName>PID_Cnotrol.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User_BSP\PID_Cnotrol.c</FilePath>
@@ -548,6 +538,16 @@
               <FileName>BSP_433.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\User_BSP\BSP_433.h</FilePath>
+            </File>
+            <File>
+              <FileName>BSP_Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User_BSP\BSP_Motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>BSP_Motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\User_BSP\BSP_Motor.h</FilePath>
             </File>
           </Files>
         </Group>

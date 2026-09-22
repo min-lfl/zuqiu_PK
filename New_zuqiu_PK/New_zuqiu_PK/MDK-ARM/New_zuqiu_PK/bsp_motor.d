@@ -1,12 +1,12 @@
-new_zuqiu_pk/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
-  ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal.h \
+new_zuqiu_pk/bsp_motor.o: ..\User_BSP\BSP_Motor.c ..\User_BSP\BSP_Motor.h \
+  D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdint.h ..\Core\Inc\tim.h \
+  ..\Core\Inc\main.h ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal.h \
   ..\Core\Inc\stm32f1xx_hal_conf.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_rcc.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_def.h \
   ..\Drivers\CMSIS\Device\ST\STM32F1xx\Include\stm32f1xx.h \
   ..\Drivers\CMSIS\Device\ST\STM32F1xx\Include\stm32f103xe.h \
   ..\Drivers\CMSIS\Include\core_cm3.h \
-  D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdint.h \
   ..\Drivers\CMSIS\Include\cmsis_version.h \
   ..\Drivers\CMSIS\Include\cmsis_compiler.h \
   ..\Drivers\CMSIS\Include\cmsis_armclang.h \
@@ -27,11 +27,4 @@ new_zuqiu_pk/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_pwr.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_tim.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_tim_ex.h \
-  ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_uart.h \
-  ..\Core\Inc\dma.h ..\Core\Inc\tim.h ..\Core\Inc\usart.h \
-  ..\Core\Inc\gpio.h ..\User_BSP\BSP_Motor.h \
-  ..\User_Drivers\Printf_DMA.H \
-  D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdarg.h \
-  D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdio.h \
-  ..\User_BSP\BSP_433.H \
-  D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdbool.h
+  ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_uart.h

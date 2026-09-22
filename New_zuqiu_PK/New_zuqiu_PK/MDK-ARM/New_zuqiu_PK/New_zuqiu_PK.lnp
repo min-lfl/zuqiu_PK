@@ -22,9 +22,9 @@
 "new_zuqiu_pk\stm32f1xx_hal_exti.o"
 "new_zuqiu_pk\stm32f1xx_hal_uart.o"
 "new_zuqiu_pk\system_stm32f1xx.o"
-"new_zuqiu_pk\bsp_servo.o"
 "new_zuqiu_pk\pid_cnotrol.o"
 "new_zuqiu_pk\bsp_433.o"
+"new_zuqiu_pk\bsp_motor.o"
 "new_zuqiu_pk\printf_dma.o"
 --strict --scatter "New_zuqiu_PK\New_zuqiu_PK.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols

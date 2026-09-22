@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "BSP_Servo.h"
+#include "BSP_Motor.h"
 #include "Printf_DMA.H"
 #include "BSP_433.H"
 /* USER CODE END Includes */
