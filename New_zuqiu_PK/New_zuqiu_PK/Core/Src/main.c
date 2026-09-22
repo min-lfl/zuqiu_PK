@@ -59,7 +59,6 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 ///* 左侧十字按键。 */
 //#define CMD_Cross_Up       (0x5751U)
 //#define CMD_Cross_Down     (0x585AU)
@@ -74,7 +73,8 @@ void SystemClock_Config(void);
 //#define CMD_One            (0x4342U)
 //#define CMD_Two            (0x4944U)
 
-/* USER CODE BEGIN 0 */
+
+uint32_t old_printf_time=0;		//上一次打印时间
 
 
 /* USER CODE END 0 */
@@ -116,6 +116,7 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_TIM4_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 	BSP_Servo_Init();
 	Set_uart_433_Init();
@@ -127,9 +128,12 @@ int main(void)
   {
 
 //		Red_uart_433();
-		
-//		Witch_uart_433();
-			
+	
+		// //500毫秒非阻塞打印输出
+		// if((HAL_GetTick()-old_printf_time)>=1000){		//这次时间减去上次时间大于500毫秒
+		// 	Witch_uart_433();
+		// 	old_printf_time=HAL_GetTick();	//更新上一次打印时间
+		// }
 //		Set_uart_433();
 		
 //		BSP_Chassis_Drive(0,-9000);
@@ -180,6 +184,8 @@ int main(void)
 		{
 			chassis_steering_target = -BSP_CHASSIS_RAMP_STEERING_MAX_COMMAND;
 		}
+
+    // BSP_Chassis_Drive(chassis_throttle_target,chassis_steering_target);
 
 		BSP_Chassis_RampDrive(chassis_throttle_target,
 			chassis_steering_target,

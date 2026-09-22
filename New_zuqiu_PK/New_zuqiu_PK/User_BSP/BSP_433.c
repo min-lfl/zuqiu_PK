@@ -453,7 +453,7 @@ void Witch_uart_433(void)
     HAL_GPIO_WritePin(BSP_433_M0, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(BSP_433_M1, GPIO_PIN_RESET);
 
-    BSP_433_BusyWaitMs(BSP_433_MODE_DELAY_MS);
+    
     (void)HAL_UART_Transmit_DMA(&BSP_433_UART_HANDLE, uart_tx_buffer,
                                 (uint16_t)sizeof(uart_tx_buffer));
 }
