@@ -58,7 +58,15 @@
  * 从而提高点按转向的精度；如果持续长按时偶尔被误判为松开，可调到180~200 ms。
  */
 #ifndef BSP_433_KEY_TIMEOUT_MS
-#define BSP_433_KEY_TIMEOUT_MS    (160U)
+#define BSP_433_KEY_TIMEOUT_MS    (130U)
+#endif
+
+/*
+ * 一次性读取成功并清空按键状态后，同一按键在此时间内收到的重复键码不会再次置位。
+ * 每个按键独立计时；该值应大于遥控器的单次重发间隔，以免一次点按被重复识别。
+ */
+#ifndef BSP_433_KEY_RETRIGGER_DELAY_MS
+#define BSP_433_KEY_RETRIGGER_DELAY_MS    (300U)
 #endif
 
 /**
@@ -77,6 +85,16 @@ void Set_uart_433_Init(void);
  *        请在主循环或控制任务中周期性调用，不要在中断中调用。
  */
 bool BSP_433_GetKeyState(uint16_t key_cmd);
+
+/**
+ * @brief 一次性读取指定按键，读取成功后立即清除该按键状态。
+ * @param key_cmd 使用本文件中的 CMD_xxx 宏。
+ * @retval true  本次读取到有效按键状态，且该状态已被清除。
+ * @retval false 当前没有有效按键状态，或 key_cmd 不是已知键码。
+ * @note  清除后 BSP_433_KEY_RETRIGGER_DELAY_MS 时间内收到的同按键键码不会再次置位；
+ *        各按键的清除时间和屏蔽时间互相独立。请勿在中断中调用。
+ */
+bool BSP_433_GetKeyStateOnce(uint16_t key_cmd);
 
 /* 以下两个函数仅用于 433 模块和链路调试。 */
 void Red_uart_433(void);

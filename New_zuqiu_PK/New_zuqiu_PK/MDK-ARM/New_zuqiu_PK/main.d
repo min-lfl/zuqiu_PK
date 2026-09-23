@@ -34,4 +34,5 @@ new_zuqiu_pk/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
   D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdarg.h \
   D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdio.h \
   ..\User_BSP\BSP_433.H \
-  D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdbool.h
+  D:\Keil_v5\Core\ARM\ARMCLANG\Bin\..\include\stdbool.h \
+  ..\User_BSP\BSP_servo.H

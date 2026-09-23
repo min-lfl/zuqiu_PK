@@ -383,6 +383,7 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
     int32_t turn_relation;       //油门与转向的符号关系，用于判断内侧轮
     float left_command;          //左侧两轮的逻辑速度
     float right_command;         //右侧两轮的逻辑速度
+    float left_right_balance;    //左右两侧电机的速度平衡参数
     float compensation_k;        //内侧轮衰减系数
     float steering_ratio;        //转向量占满量程的比例,范围[0,1]
     float inner_wheel_scale;      //随转向量连续变化的内侧轮衰减系数
@@ -477,6 +478,28 @@ void BSP_Chassis_Drive(int16_t throttle, int16_t steering)
     {
         left_command *= inner_wheel_scale;
     }
+
+    /*
+     * 左右电机增益补偿放在混控和内侧轮衰减之后、统一限幅之前：
+     *
+     *   L = L * balance
+     *   R = R * (2-balance)
+     *
+     * balance=1时保持原输出不变；小于1时左减右加，大于1时左加右减。
+     * 两个倍率均不会小于0，因此补偿不会改变任何车轮原本的转动方向。
+     */
+    left_right_balance = BSP_CHASSIS_LEFT_RIGHT_BALANCE;
+    if (left_right_balance < 0.0F)
+    {
+        left_right_balance = 0.0F;
+    }
+    else if (left_right_balance > 2.0F)
+    {
+        left_right_balance = 2.0F;
+    }
+
+    left_command *= left_right_balance;
+    right_command *= 2.0F - left_right_balance;
 
     /*
      * 按比例进行输出限幅：

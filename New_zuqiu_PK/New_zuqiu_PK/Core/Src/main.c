@@ -28,6 +28,7 @@
 #include "BSP_Motor.h"
 #include "Printf_DMA.H"
 #include "BSP_433.H"
+#include "BSP_servo.H"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,6 +77,9 @@ void SystemClock_Config(void);
 
 uint32_t old_printf_time=0;		//上一次打印时间
 
+uint16_t Servo_Control=0;		//舵机控制变量
+
+uint8_t Servo_Control_byte[2]={0};
 
 /* USER CODE END 0 */
 
@@ -120,13 +124,36 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	BSP_Motor_Init();
 	Set_uart_433_Init();
+	BSP_Servo_Init();	
+//	BSP_Servo_SetJ1Pulse(2050);	//写入通道1的ccr值,控制关节1
+//	BSP_Servo_SetJ2Pulse(2300);	//写入通道2的ccr值,控制关节2
+//	BSP_Servo_SetJ3Pulse(980);	//写入通道3的ccr值,控制关节3
+	
+	BSP_Servo_SetJ1Pulse(2000);	//写入通道1的ccr值,控制关节1
+	BSP_Servo_SetJ2Pulse(2300);	//写入通道2的ccr值,控制关节2
+	BSP_Servo_SetJ3Pulse(980);	//写入通道3的ccr值,控制关节3
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+		if(BSP_433_GetKeyStateOnce(CMD_Cross_Up)){
+			if(Servo_Control==2500){
+				Servo_Control=500;
+			}else{
+				Servo_Control=2500;
+			}
+			BSP_Servo_SetGripperPulse(Servo_Control);
+//			HAL_Delay(2000);
 
+		}
+//			//把角度ccr值变成字节数据包
+//			Servo_Control_byte[0]=(uint8_t)(Servo_Control>>8);
+//			Servo_Control_byte[1]=(uint8_t)(Servo_Control&0xFF);
+//			//发送数据
+//			HAL_UART_Transmit_DMA(&BSP_433_UART_HANDLE,Servo_Control_byte,2);
+		
 //		Red_uart_433();
 	
 		// //500毫秒非阻塞打印输出
@@ -168,11 +195,11 @@ int main(void)
 		chassis_throttle_target = 0;
 		if (key_forward && !key_back)
 		{
-			chassis_throttle_target = 10000;
+			chassis_throttle_target = 7500;
 		}
 		else if (key_back && !key_forward)
 		{
-			chassis_throttle_target = -10000;
+			chassis_throttle_target = -7500;
 		}
 
 		chassis_steering_target = 0;

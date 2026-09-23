@@ -37,7 +37,9 @@ typedef struct
 {
     uint16_t command;
     uint32_t last_received_tick;
+    uint32_t last_cleared_tick;
     bool is_pressed;
+    bool retrigger_blocked;
 } BSP_433_KeyState_t;
 
 /*
@@ -65,17 +67,17 @@ static uint8_t s_uart_rx_byte = 0U;
  */
 static volatile uint32_t s_rx_overflow_count = 0U;
 
-/* 每个按键都有独立的状态和最后接收时间，因此多个按键不会相互覆盖。 */
+/* 每个按键都有独立的状态、接收时间和清除时间，因此多个按键不会相互覆盖。 */
 static BSP_433_KeyState_t s_key_states[] =
 {
-    {CMD_Cross_Up,    0U, false},
-    {CMD_Cross_Down,  0U, false},
-    {CMD_Cross_LEFT,  0U, false},
-    {CMD_Cross_RIGHT, 0U, false},
-    {CMD_Forward,     0U, false},
-    {CMD_Back,        0U, false},
-    {CMD_One,         0U, false},
-    {CMD_Two,         0U, false}
+    {CMD_Cross_Up,    0U, 0U, false, false},
+    {CMD_Cross_Down,  0U, 0U, false, false},
+    {CMD_Cross_LEFT,  0U, 0U, false, false},
+    {CMD_Cross_RIGHT, 0U, 0U, false, false},
+    {CMD_Forward,     0U, 0U, false, false},
+    {CMD_Back,        0U, 0U, false, false},
+    {CMD_One,         0U, 0U, false, false},
+    {CMD_Two,         0U, 0U, false, false}
 };
 
 #define BSP_433_KEY_COUNT \
@@ -193,7 +195,9 @@ static void BSP_433_ClearKeyStates(void)
     for (index = 0U; index < BSP_433_KEY_COUNT; index++)
     {
         s_key_states[index].last_received_tick = 0U;
+        s_key_states[index].last_cleared_tick = 0U;
         s_key_states[index].is_pressed = false;
+        s_key_states[index].retrigger_blocked = false;
     }
 }
 
@@ -252,6 +256,7 @@ static void BSP_433_ProcessReceivedData(void)
     uint16_t command;
     uint32_t first_tick;
     uint32_t second_tick;
+    uint32_t time_since_clear;
     BSP_433_KeyState_t *key_state;
 
     while (true)
@@ -285,8 +290,22 @@ static void BSP_433_ProcessReceivedData(void)
              * 每个键只刷新自己的时间戳。交替收到 CMD_Forward 与
              * CMD_Cross_LEFT/RIGHT 时，两者会同时保持为 true。
              */
-            key_state->last_received_tick = second_tick;
-            key_state->is_pressed = true;
+            time_since_clear =
+                (uint32_t)(second_tick - key_state->last_cleared_tick);
+
+            /*
+             * 一次性读取清除后的屏蔽期内，只消费重复报文，不重新置位。
+             * 第二个时间条件同时排除清除前已进入缓冲区、尚未解析的旧报文。
+             */
+            if ((!key_state->retrigger_blocked) ||
+                ((time_since_clear >= BSP_433_KEY_RETRIGGER_DELAY_MS) &&
+                 (time_since_clear <=
+                  (uint32_t)(HAL_GetTick() - key_state->last_cleared_tick))))
+            {
+                key_state->last_received_tick = second_tick;
+                key_state->is_pressed = true;
+                key_state->retrigger_blocked = false;
+            }
 
             /* 合法键码消费两个字节。 */
             s_rx_read_index = BSP_433_RingNextIndex(second_index);
@@ -379,6 +398,28 @@ bool BSP_433_GetKeyState(uint16_t key_cmd)
     }
 
     return key_state->is_pressed;
+}
+
+bool BSP_433_GetKeyStateOnce(uint16_t key_cmd)
+{
+    BSP_433_KeyState_t *key_state;
+
+    if (!BSP_433_GetKeyState(key_cmd))
+    {
+        return false;
+    }
+
+    key_state = BSP_433_FindKeyState(key_cmd);
+    if (key_state == NULL)
+    {
+        return false;
+    }
+
+    key_state->is_pressed = false;
+    key_state->last_cleared_tick = HAL_GetTick();
+    key_state->retrigger_blocked = true;
+
+    return true;
 }
 
 /*
