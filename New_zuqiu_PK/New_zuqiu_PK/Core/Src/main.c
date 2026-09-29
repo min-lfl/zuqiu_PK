@@ -129,9 +129,10 @@ int main(void)
 //	BSP_Servo_SetJ2Pulse(2300);	//写入通道2的ccr值,控制关节2
 //	BSP_Servo_SetJ3Pulse(980);	//写入通道3的ccr值,控制关节3
 	
-	BSP_Servo_SetJ1Pulse(2000);	//写入通道1的ccr值,控制关节1
-	BSP_Servo_SetJ2Pulse(2300);	//写入通道2的ccr值,控制关节2
-	BSP_Servo_SetJ3Pulse(980);	//写入通道3的ccr值,控制关节3
+	BSP_Servo_SetAbsoluteAngles(0,
+                                 0,
+                                 0);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
