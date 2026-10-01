@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "updated_on": "2026-10-01",
+  "purpose": "Codex-local project context for future repository work. Verify against current files before relying on values.",
+  "repo_root": "C:/A1_stm32_good_ider/zuqiu_PK",
+  "source_priority": "Current source code and owner statements take precedence over dated exploratory notes. Use the notes to recover design intent and test evidence.",
+  "user_preferences": [
+    "Ask promptly when a genuinely necessary technical or intent detail is unclear; do not turn straightforward engineering relationships into confirmation questions.",
+    "Write public project descriptions in an objective technical portfolio style like C:/A1_stm32_good_ider/Ping_Hen/README.md. Make problem, design choice, outcome, and evidence clear within each highlight; avoid explicit STAR labels, repeated first-person narration, and '作者说'.",
+    "Prioritize technical route, personal notes, independent deliverables, and engineering habits over directory inventories or competition compliance commentary.",
+    "Do not include a '待确认' section in the human-facing README."
+  ],
+  "project": {
+    "goal": "Remotely operated four-wheel football robot intended to capture and move a ball into the goal; future claw tactics are concepts, not current firmware behavior.",
+    "main_firmware": "New_zuqiu_PK/New_zuqiu_PK/",
+    "mcu": "STM32F103VET6",
+    "framework_and_ide": "STM32 HAL/CubeMX and Keil MDK",
+    "hardware_context": "Factory chassis and controller board. Remote wireless section was modified with signal enhancement and flying-wire module connection.",
+    "current_runtime": "USART1 receives E49 keycodes; main loop maps independent throttle and steering axes into ramped four-wheel skid steering. TIM2 serves three arm joints plus gripper."
+  },
+  "implementation_boundaries": "PID_Cnotrol.c and Printf_DMA.c are included in the Keil project but not called by the current main loop. Current main initializes the three joints at absolute 0/0/0 and toggles only the gripper; further ball-handling arm motions are future work.",
+  "technical_route": [
+    {
+      "topic": "Board-level debugging",
+      "evidence": "个人笔记整理/关于控制板的理解.docx",
+      "facts": "Tracked 74LVC4245APW, R43 and IO_DIR2 jumper direction; documented why PA9/PA10 and CH340 can conflict during serial programming."
+    },
+    {
+      "topic": "Remote research",
+      "evidence": "个人笔记整理/关于遥控器的研究.docx",
+      "facts": "Photographed/debugged USB and 10-pin ISP connections and researched a compatible programmer. Some port-role conclusions in the note were exploratory, not a verified reflash result."
+    },
+    {
+      "topic": "E49 test and tooling",
+      "evidence": "个人笔记整理/433模块串口发送.docx; 433模块资料/433模块自研上位机软件/E49_400T20S_上位机.py; 433模块资料/433模块自研上位机软件/E49_400T20S_上位机.exe",
+      "facts": "Built a jumper-controlled test setup and a Python Tkinter/pyserial desktop tool. The tool supports config/version reads, C0/C2 writes, transparent data, logs, separated read/edit panels, robust response parsing, and offline --self-test. Source APP_VERSION is 2.1.0."
+    },
+    {
+      "topic": "Remote input architecture",
+      "evidence": "个人笔记整理/关于串口接收模块思路.docx; New_zuqiu_PK/New_zuqiu_PK/User_BSP/BSP_433.c; New_zuqiu_PK/New_zuqiu_PK/Core/Src/main.c",
+      "facts": "Captured interleaved two-byte keycodes. UART ISR writes a ring buffer; main loop parses with sliding resynchronization and per-key timestamps. Independent throttle/steering axes allow combined forward/turn. Invalid stream or UART fault clears key states."
+    },
+    {
+      "topic": "Motor control",
+      "evidence": "个人笔记整理/关于电机驱动的思路.docx; New_zuqiu_PK/New_zuqiu_PK/User_BSP/BSP_Motor.h; New_zuqiu_PK/New_zuqiu_PK/User_BSP/BSP_Motor.c",
+      "facts": "Observed low-active approximately 20 ms PWM, aged neutral offset and dead zone. Implemented four-wheel neutral/polarity calibration, dead-zone compensation, skid-steer mixing, geometry-based inside-wheel scaling, balance, proportional normalization, and separate throttle/steering ramps."
+    },
+    {
+      "topic": "Arm interface",
+      "evidence": "New_zuqiu_PK/New_zuqiu_PK/User_BSP/BSP_servo.h; New_zuqiu_PK/New_zuqiu_PK/User_BSP/BSP_servo.c",
+      "facts": "Accepts ground-absolute angles for three links, converts them to local joint angles, then applies calibrated neutral and direction to TIM2 PWM. Gripper uses a separate raw CCR interface."
+    }
+  ],
+  "calibration_confirmed_by_owner": {
+    "motor_neutral_ccr_each_wheel": 1440,
+    "left_right_balance": 0.945,
+    "joint_horizontal_ccr_each": 1500,
+    "joint_direction_each": 1
+  },
+  "remote_signal_note": "Long-press continuity depends on sender repeat interval and receiver key-state retention time. Intermittent pauses occurred, were temporarily addressed, and the owner plans to refactor remote-side code. Treat this as engineering history, not an open confirmation question.",
+  "historical_configuration_note": "The 2026-09-09 E49 note shows a 434.5 MHz configuration snapshot; current BSP_433.c writes CHAN 0x3E, about 441 MHz by the module formula. Do not conflate historical notes with current firmware configuration.",
+  "validation_snapshot": {
+    "e49_offline_self_test": "Passed on 2026-10-01 by running E49_400T20S_上位机.py --self-test; no GUI or hardware involved.",
+    "firmware": "Previous Keil build log records 0 errors and 0 warnings; no new firmware build or hardware test was run during documentation work."
+  }
+}
