@@ -113,19 +113,19 @@ void main(void)
 		}
 		if(F1==0)
 		{
-			send_string("Aa")
+			send_string("Aa");
 		}
 		if(F2==0)
 		{
-			send_string("Bb")
+			send_string("Bb");
 		}
 		if(F3==0)
 		{
-			send_string("Cc")
+			send_string("Cc");
 		}
 		if(F4==0)
 		{
-			send_string("Dd")
+			send_string("Dd");
 		}
 		delaynms(48);//60
 	}
