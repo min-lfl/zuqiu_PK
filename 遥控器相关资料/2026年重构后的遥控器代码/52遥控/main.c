@@ -1,4 +1,4 @@
-#include<reg51.h>  //°üº¬51µ¥Æ¬»ú¼Ä´æÆ÷¶¨ÒåµÄÍ·ÎÄ¼ş
+#include<reg51.h>  //åŒ…å«51å•ç‰‡æœºå¯„å­˜å™¨å®šä¹‰çš„å¤´æ–‡ä»¶
 #include "intrins.h"
 #define u32 unsigned int 
 #define u8 unsigned char 
@@ -6,24 +6,24 @@
 #define true  1 
 #define false 0
 	
-//ÅäÖÃÎŞÏßÄ£Ê½¶Ë¿Ú¶¨Òå	
+//é…ç½®æ— çº¿æ¨¡å¼ç«¯å£å®šä¹‰	
 sbit  WX_M0=P1^1;
 sbit  WX_M1=P1^2;	
 
-//·½Ïò¼ü
+//æ–¹å‘é”®
 sbit Left    = P0^0;
 sbit Right   = P0^1;
 sbit Forward = P0^2;
 sbit Back    = P0^3;
-//¼Ó¼õËÙ¼ü
+//åŠ å‡é€Ÿé”®
 sbit UpSpeed   = P0^4;
 sbit DownSpeed = P0^5;
-//¹¦ÄÜ¼ü
+//åŠŸèƒ½é”®
 sbit F1 = P0^6;
 sbit F2 = P0^7;
 sbit F3 = P1^3;
 sbit F4 = P1^4;
-//²¦Âë¿ª¹Ø
+//æ‹¨ç å¼€å…³
 sbit S1 = P2^0;
 sbit S2 = P2^1;
 sbit S3 = P2^2;
@@ -32,7 +32,7 @@ sbit S5 = P2^4;
 sbit S6 = P2^5;
 sbit S7 = P2^6;
 sbit S8 = P2^7;
-//´®¿Ú³õÊ¼»¯
+//ä¸²å£åˆå§‹åŒ–
 
 void init_9600(void)
 {
@@ -46,7 +46,7 @@ void init_9600(void)
 		IE = 0x0;
 }
 
-//·¢ËÍÒ»¸ö×Ö½Ú
+//å‘é€ä¸€ä¸ªå­—èŠ‚
 void send_char(u8 txd)
 {
 	SBUF =txd;
@@ -63,7 +63,7 @@ void send_string(u8 *p)
 		send_char(*pchar++);		
 	}
 }
-//ÑÓÊ±º¯Êı1ºÁÃë
+//å»¶æ—¶å‡½æ•°1æ¯«ç§’
 void delay1ms()
 {
    unsigned char i,j;	
@@ -72,7 +72,7 @@ void delay1ms()
 	   ;		 
  }
 
-//ÑÓÊ±º¯Êı£¬nºÁÃë
+//å»¶æ—¶å‡½æ•°ï¼Œnæ¯«ç§’
  void delaynms(unsigned int n)
  {
 		unsigned int i;
@@ -80,26 +80,54 @@ void delay1ms()
 	  delay1ms();
  }
  
+/*
+ * ä¸ STM32ç”¨ç›¸åŒçš„é…ç½®
+ */
+void init_wireless_433(void)
+{
+    //ä¸Šç”µå500 ms ç­‰å¾…
+    delaynms(500);
+
+    //M0=0ã€M1=1ï¼šè¿›å…¥è®¾ç½®æ¨¡å¼
+    WX_M0 = 0;
+    WX_M1 = 1;
+    delaynms(500);
+
+    //å¿…é¡»é€å­—èŠ‚æŒ‰é¡ºåºå‘é€
+    send_char(0xC0);
+    send_char(0xFF);
+    send_char(0xFF);
+    send_char(0x19);
+    send_char(0x3E);
+    send_char(0x00);
+
+    //æœ€åå†ç­‰?00 msï¼Œ
+    delaynms(500);
+
+    //M0=0ã€M1=0ï¼šå›åˆ°é€æ˜æ”¶å‘æ¨¡å¼
+    WX_M0 = 0;
+    WX_M1 = 0;
+}
+
 void main(void)
 {
 	init_9600();
-	WX_M0=0;
-	WX_M1=0;
+	init_wireless_433();		//åˆå§‹åŒ–æ— çº¿æ¨¡å—
 	while(1)
 	{		
-		if(Left==0)//×ó
+		if(Left==0)//å·¦
 		{
 			send_string("SA");//ASDF
 		}
-		if(Right==0)//ÓÒ
+		if(Right==0)//å³
 		{
 			send_string("XM");//MXCV
 		}
-		if(Forward==0)//Ç°
+		if(Forward==0)//å‰
 		{
 			send_string("WQ");//QWER
 		}
-		if(Back==0)//ºó
+		if(Back==0)//å
 		{
 			send_string("XZ");//ZXYJ
 		}
@@ -131,12 +159,12 @@ void main(void)
 	}
 }
 
-//Íâ²¿ÖĞ¶Ï1ÖĞ¶Ï·şÎñº¯Êı
+//å¤–éƒ¨ä¸­æ–­1ä¸­æ–­æœåŠ¡å‡½æ•°
 void it_INT1(void) interrupt 2 
 { 
 	IE1 = 0;
 }
-//¶¨Ê±Æ÷0ÖĞ¶Ï·şÎñº¯Êı
+//å®šæ—¶å™¨0ä¸­æ–­æœåŠ¡å‡½æ•°
 void it_timer0(void) interrupt 1 
 { 
 	TF0 = 0;

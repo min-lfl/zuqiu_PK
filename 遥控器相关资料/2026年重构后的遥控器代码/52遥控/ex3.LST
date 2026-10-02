@@ -1,0 +1,170 @@
+C51 COMPILER V9.54   EX3                                                                   10/02/2026 14:55:56 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE EX3
+OBJECT MODULE PLACED IN ex3.OBJ
+COMPILER INVOKED BY: D:\Keil_v5\C51\C51\BIN\C51.EXE ex3.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          #include<reg51.h>  //包含51单片机寄存器定义的头文件
+   2          #include "intrins.h"
+   3          #define u32 unsigned int 
+   4          #define u8 unsigned char 
+   5          #define u16 unsigned short int
+   6          #define true  1 
+   7          #define false 0
+   8            
+   9          //配置无线模式端口定义  
+  10          sbit  WX_M0=P1^1;
+  11          sbit  WX_M1=P1^2; 
+  12          
+  13          //方向键
+  14          sbit Left    = P0^0;
+  15          sbit Right   = P0^1;
+  16          sbit Forward = P0^2;
+  17          sbit Back    = P0^3;
+  18          //加减速键
+  19          sbit UpSpeed   = P0^4;
+  20          sbit DownSpeed = P0^5;
+  21          //功能键
+  22          sbit F1 = P0^6;
+  23          sbit F2 = P0^7;
+  24          sbit F3 = P1^3;
+  25          sbit F4 = P1^4;
+  26          //拨码开关
+  27          sbit S1 = P2^0;
+  28          sbit S2 = P2^1;
+  29          sbit S3 = P2^2;
+  30          sbit S4 = P2^3;
+  31          sbit S5 = P2^4;
+  32          sbit S6 = P2^5;
+  33          sbit S7 = P2^6;
+  34          sbit S8 = P2^7;
+  35          //串口初始化
+  36          
+  37          void init_9600(void)
+  38          {
+  39   1          TMOD = 0x20;      
+  40   1          TH1 = 0xFD;   
+  41   1          TL1 = 0xFD;
+  42   1          SCON = 0x50;      
+  43   1          PCON &= 0x7f;   
+  44   1          TR1 = 1;        
+  45   1        
+  46   1          IE = 0x0;
+  47   1      }
+  48          
+  49          //发送一个字节
+  50          void send_char(u8 txd)
+  51          {
+  52   1        SBUF =txd;
+  53   1        while(!TI);     
+  54   1          TI = 0;               
+  55   1      }
+C51 COMPILER V9.54   EX3                                                                   10/02/2026 14:55:56 PAGE 2   
+
+  56          void send_string(u8 *p)
+  57          {
+  58   1        char *pchar;
+  59   1      
+  60   1        pchar = p;
+  61   1        while (*pchar != '\0')
+  62   1        {
+  63   2          send_char(*pchar++);    
+  64   2        }
+  65   1      }
+  66          //延时函数1毫秒
+  67          void delay1ms()
+  68          {
+  69   1         unsigned char i,j; 
+  70   1         for(i=0;i<10;i++)
+  71   1          for(j=0;j<33;j++)
+  72   1           ;     
+  73   1       }
+  74          
+  75          //延时函数，n毫秒
+  76           void delaynms(unsigned int n)
+  77           {
+  78   1          unsigned int i;
+  79   1          for(i=0;i<n;i++)
+  80   1          delay1ms();
+  81   1       }
+  82           
+  83          void main(void)
+  84          {
+  85   1        init_9600();
+  86   1        WX_M0=0;
+  87   1        WX_M1=0;
+  88   1        while(1)
+  89   1        {   
+  90   2          if(Left==0)//左
+  91   2          {
+  92   3            send_string("SA");//ASDF
+  93   3          }
+  94   2          if(Right==0)//右
+  95   2          {
+  96   3            send_string("XM");//MXCV
+  97   3          }
+  98   2          if(Forward==0)//前
+  99   2          {
+ 100   3            send_string("WQ");//QWER
+ 101   3          }
+ 102   2          if(Back==0)//后
+ 103   2          {
+ 104   3            send_string("XZ");//ZXYJ
+ 105   3          }
+ 106   2          if(UpSpeed==0)
+ 107   2          {
+ 108   3            send_string("OP");//POIU
+ 109   3          }
+ 110   2          if(DownSpeed==0)
+ 111   2          {
+ 112   3            send_string("KL");//LKJH
+ 113   3          }
+ 114   2          if(F1==0)
+ 115   2          {
+ 116   3            send_string("Aa");
+ 117   3          }
+C51 COMPILER V9.54   EX3                                                                   10/02/2026 14:55:56 PAGE 3   
+
+ 118   2          if(F2==0)
+ 119   2          {
+ 120   3            send_string("Bb");
+ 121   3          }
+ 122   2          if(F3==0)
+ 123   2          {
+ 124   3            send_string("Cc");
+ 125   3          }
+ 126   2          if(F4==0)
+ 127   2          {
+ 128   3            send_string("Dd");
+ 129   3          }
+ 130   2          delaynms(48);//60
+ 131   2        }
+ 132   1      }
+ 133          
+ 134          //外部中断1中断服务函数
+ 135          void it_INT1(void) interrupt 2 
+ 136          { 
+ 137   1        IE1 = 0;
+ 138   1      }
+ 139          //定时器0中断服务函数
+ 140          void it_timer0(void) interrupt 1 
+ 141          { 
+ 142   1        TF0 = 0;
+ 143   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    247    ----
+   CONSTANT SIZE    =     30    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

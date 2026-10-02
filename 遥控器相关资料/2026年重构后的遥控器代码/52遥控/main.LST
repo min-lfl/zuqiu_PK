@@ -1,0 +1,200 @@
+C51 COMPILER V9.54   MAIN                                                                  10/02/2026 15:51:41 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\Keil_v5\C51\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          #include<reg51.h>  //包含51单片机寄存器定义的头文件
+   2          #include "intrins.h"
+   3          #define u32 unsigned int 
+   4          #define u8 unsigned char 
+   5          #define u16 unsigned short int
+   6          #define true  1 
+   7          #define false 0
+   8            
+   9          //配置无线模式端口定义  
+  10          sbit  WX_M0=P1^1;
+  11          sbit  WX_M1=P1^2; 
+  12          
+  13          //方向键
+  14          sbit Left    = P0^0;
+  15          sbit Right   = P0^1;
+  16          sbit Forward = P0^2;
+  17          sbit Back    = P0^3;
+  18          //加减速键
+  19          sbit UpSpeed   = P0^4;
+  20          sbit DownSpeed = P0^5;
+  21          //功能键
+  22          sbit F1 = P0^6;
+  23          sbit F2 = P0^7;
+  24          sbit F3 = P1^3;
+  25          sbit F4 = P1^4;
+  26          //拨码开关
+  27          sbit S1 = P2^0;
+  28          sbit S2 = P2^1;
+  29          sbit S3 = P2^2;
+  30          sbit S4 = P2^3;
+  31          sbit S5 = P2^4;
+  32          sbit S6 = P2^5;
+  33          sbit S7 = P2^6;
+  34          sbit S8 = P2^7;
+  35          //串口初始化
+  36          
+  37          void init_9600(void)
+  38          {
+  39   1          TMOD = 0x20;      
+  40   1          TH1 = 0xFD;   
+  41   1          TL1 = 0xFD;
+  42   1          SCON = 0x50;      
+  43   1          PCON &= 0x7f;   
+  44   1          TR1 = 1;        
+  45   1        
+  46   1          IE = 0x0;
+  47   1      }
+  48          
+  49          //发送一个字节
+  50          void send_char(u8 txd)
+  51          {
+  52   1        SBUF =txd;
+  53   1        while(!TI);     
+  54   1          TI = 0;               
+  55   1      }
+C51 COMPILER V9.54   MAIN                                                                  10/02/2026 15:51:41 PAGE 2   
+
+  56          void send_string(u8 *p)
+  57          {
+  58   1        char *pchar;
+  59   1      
+  60   1        pchar = p;
+  61   1        while (*pchar != '\0')
+  62   1        {
+  63   2          send_char(*pchar++);    
+  64   2        }
+  65   1      }
+  66          //延时函数1毫秒
+  67          void delay1ms()
+  68          {
+  69   1         unsigned char i,j; 
+  70   1         for(i=0;i<10;i++)
+  71   1          for(j=0;j<33;j++)
+  72   1           ;     
+  73   1       }
+  74          
+  75          //延时函数，n毫秒
+  76           void delaynms(unsigned int n)
+  77           {
+  78   1          unsigned int i;
+  79   1          for(i=0;i<n;i++)
+  80   1          delay1ms();
+  81   1       }
+  82           
+  83          /*
+  84           * 与 STM32用相同的配置
+  85           */
+  86          void init_wireless_433(void)
+  87          {
+  88   1          //上电后500 ms 等待
+  89   1          delaynms(500);
+  90   1      
+  91   1          //M0=0、M1=1：进入设置模式
+  92   1          WX_M0 = 0;
+  93   1          WX_M1 = 1;
+  94   1          delaynms(500);
+  95   1      
+  96   1          //必须逐字节按顺序发送
+  97   1          send_char(0xC0);
+  98   1          send_char(0xFF);
+  99   1          send_char(0xFF);
+ 100   1          send_char(0x19);
+ 101   1          send_char(0x3E);
+ 102   1          send_char(0x00);
+ 103   1      
+ 104   1          //最后再等?00 ms，
+ 105   1          delaynms(500);
+ 106   1      
+ 107   1          //M0=0、M1=0：回到透明收发模式
+ 108   1          WX_M0 = 0;
+ 109   1          WX_M1 = 0;
+ 110   1      }
+ 111          
+ 112          void main(void)
+ 113          {
+ 114   1        init_9600();
+ 115   1        init_wireless_433();
+ 116   1        while(1)
+ 117   1        {   
+C51 COMPILER V9.54   MAIN                                                                  10/02/2026 15:51:41 PAGE 3   
+
+ 118   2          if(Left==0)//左
+ 119   2          {
+ 120   3            send_string("SA");//ASDF
+ 121   3          }
+ 122   2          if(Right==0)//右
+ 123   2          {
+ 124   3            send_string("XM");//MXCV
+ 125   3          }
+ 126   2          if(Forward==0)//前
+ 127   2          {
+ 128   3            send_string("WQ");//QWER
+ 129   3          }
+ 130   2          if(Back==0)//后
+ 131   2          {
+ 132   3            send_string("XZ");//ZXYJ
+ 133   3          }
+ 134   2          if(UpSpeed==0)
+ 135   2          {
+ 136   3            send_string("OP");//POIU
+ 137   3          }
+ 138   2          if(DownSpeed==0)
+ 139   2          {
+ 140   3            send_string("KL");//LKJH
+ 141   3          }
+ 142   2          if(F1==0)
+ 143   2          {
+ 144   3            send_string("Aa");
+ 145   3          }
+ 146   2          if(F2==0)
+ 147   2          {
+ 148   3            send_string("Bb");
+ 149   3          }
+ 150   2          if(F3==0)
+ 151   2          {
+ 152   3            send_string("Cc");
+ 153   3          }
+ 154   2          if(F4==0)
+ 155   2          {
+ 156   3            send_string("Dd");
+ 157   3          }
+ 158   2          delaynms(48);//60
+ 159   2        }
+ 160   1      }
+ 161          
+ 162          //外部中断1中断服务函数
+ 163          void it_INT1(void) interrupt 2 
+ 164          { 
+ 165   1        IE1 = 0;
+ 166   1      }
+ 167          //定时器0中断服务函数
+ 168          void it_timer0(void) interrupt 1 
+ 169          { 
+ 170   1        TF0 = 0;
+ 171   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    296    ----
+   CONSTANT SIZE    =     30    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       3
+C51 COMPILER V9.54   MAIN                                                                  10/02/2026 15:51:41 PAGE 4   
+
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
